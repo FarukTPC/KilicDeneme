@@ -1,0 +1,18 @@
+# --- Unity Standart Engellemeleri (Bunlar şart) ---
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+
+# --- VS Code Ayarları (Gerek yok) ---
+.vscode/
+
+# --- ÖZEL ENGELLEME (İstemediğin Klasör) ---
+/Assets/PROTOFACTOR/
+/Assets/PROTOFACTOR.meta
+
+# Geri kalan her şeye otomatik izin verilir.
