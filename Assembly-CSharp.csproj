@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="Assets\General\Scripts\PlayerController.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\General\Scripts\PlayerCombat.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Creature Animset\Animation List - Creature Animset.txt" />
