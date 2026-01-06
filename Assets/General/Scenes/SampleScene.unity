@@ -612,7 +612,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc6c4aaa5768f40408e918bcb6d46184, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
-  isAttacking: 0
+  maxHealth: 100
+  currentHealth: 0
+  isDead: 0
+  parryWindowDuration: 0.5
+  parryCooldown: 1
+  isParrying: 0
+  bloodEffect: {fileID: 7243883354621959750, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+  cameraTransform: {fileID: 389620113}
+  shakeDuration: 0.2
+  shakeMagnitude: 0.1
+  canBasicAttack: 1
+  basicAttackBlockDuration: 0.7
+  specialAttacks:
+  - attackName: Tekme
+    inputKey: 101
+    triggerName: Kick
+    duration: 1.167
+  - attackName: ShieldAttack
+    inputKey: 102
+    triggerName: ShieldA
+    duration: 1.167
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
