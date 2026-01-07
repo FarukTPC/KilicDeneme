@@ -4,6 +4,9 @@ using System.Collections;
 
 public class PlayerCombat : MonoBehaviour
 {
+    // Yönler: 0=Up, 1=Right, 2=Left
+    public enum AttackDir { Up = 0, Right = 1, Left = 2 }
+
     [System.Serializable]
     public struct SpecialAttack
     {
@@ -11,335 +14,269 @@ public class PlayerCombat : MonoBehaviour
         public KeyCode inputKey;       
         public string triggerName;     
         public float duration;
-        
-        [Tooltip("Bu yetenek düşmana kaç hasar versin?")]
         public int damage; 
-        
-        public bool causesStun; 
-
-        [Header("Audio")]
+        public bool causesStun;
+        public float stunDuration;       
+        public float knockbackForce;     
+        public float knockbackDuration;  
         public AudioClip skillActionSound; 
-        public AudioClip skillHitSound;    
     }
 
     #region Variables
 
-    [Header("Damage Settings")]
-    [Tooltip("Sol Tık (Kılıç) vuruşunun hasarı")]
-    public int basicAttackDamage = 10; 
+    [Header("Combat Mode & Targeting")]
+    public bool isInCombatMode = false;
+    private Transform currentTarget; 
+    public float lockOnRange = 10f; 
+    public float rotationSpeed = 10f;
 
-    private int currentAttackDamage; 
-
-    [Header("Global Audio")]
-    public AudioSource audioSource;
-    public AudioClip swordSwingSound;
-    public AudioClip swordHitSound;
-    public AudioClip parryActionSound; 
-    public AudioClip parrySuccessSound; 
-    
-    private AudioClip currentHitSound; 
-
-    [Header("Attack Detection")]
-    public Transform attackPoint;
-    public float attackRange = 0.8f;
-    public LayerMask enemyLayers;
-    public float hitTimingDelay = 0.2f; 
-
-    [Header("Health & Status")]
-    public int maxHealth = 100;
-    public int currentHealth;
-    public bool isDead = false;
-
-    [Header("Stun Settings")]
-    public float stunDuration = 0.5f;
-    private bool isStunned = false; 
-
-    // --- YENİ EKLENEN KISIM: PLAYER KNOCKBACK AYARLARI ---
-    [Header("Player Knockback Settings (YENİ)")]
-    [Tooltip("Düşman vurduğunda ne kadar geriye uçalım?")]
-    public float knockbackForce = 8f; 
-    [Tooltip("Geriye uçma süresi")]
-    public float knockbackDuration = 0.2f;
-    // -----------------------------------------------------
+    [Header("Directional Combat")]
+    public AttackDir currentDirection = AttackDir.Left; 
+    public float mouseThreshold = 0.1f;
 
     [Header("Parry System")]
-    public float parryWindowDuration = 0.5f;
-    public float parryCooldown = 1.0f;
-    public bool isParrying = false; 
+    [Tooltip("Başarılı bir parry sonrası düşmanın ne kadar süre sersemleyeceği")]
+    public float parryStunDuration = 2.0f;
+    public AudioClip parrySuccessSound;
 
-    [Header("Effects")]
-    public ParticleSystem bloodEffect; 
-    public Transform cameraTransform;  
-    public float shakeDuration = 0.15f;
-    public float shakeMagnitude = 0.4f;
+    [Header("Attack Settings")]
+    public float attackCooldown = 0.6f; 
+    private float nextAttackTime = 0f;
+    
+    [Header("Lunge Settings")]
+    public float attackLungeForce = 4.0f; 
+    public float lungeDuration = 0.2f;
 
-    [Header("Basic Attack Settings")]
-    public bool canBasicAttack = true;
-    public float basicAttackBlockDuration = 0.7f;
+    [Header("Damage Settings")]
+    public int basicAttackDamage = 15; 
+    public float basicStunDuration = 0.5f; 
 
-    [Header("Special Attacks List")]
+    [Header("Status")]
+    public int maxHealth = 100;
+    private int currentHealth;
+    public bool isDead = false;
+    private bool isBlocking = false;
+    private bool isAttacking = false; 
+    private bool isBusy = false;
+
+    [Header("References")]
+    public Transform attackPoint;
+    public float attackRange = 1.0f;
+    public LayerMask enemyLayers; 
+    public AudioSource audioSource;
+    public AudioClip swingSound;
+    public AudioClip hitSound;
+    public GameObject hitEffectPrefab; 
+    public Transform cameraTransform;
+    public float shakeDuration = 0.2f;
+    public float shakeMagnitude = 0.3f;
+    private Vector3 initialCamPos;
+
     public List<SpecialAttack> specialAttacks;
 
-    // Kontroller
-    private bool isBusy = false;
-    private float lastBasicAttackTime = -999f;
-    private float lastParryTime = -999f;
-    private Vector3 originalCameraPos;
-    private bool currentAttackCausesStun = false;
-
-    // Bileşenler
     private Animator _animator;
-    private CharacterController _characterController; // Varsa kullanalım
+    private CharacterController _characterController;
 
     #endregion
-
-    #region Unity Methods
 
     private void Awake()
     {
         _animator = GetComponent<Animator>();
-        _characterController = GetComponent<CharacterController>(); // Otomatik bul
-
-        if (audioSource == null) audioSource = GetComponent<AudioSource>();
-        if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
-
+        _characterController = GetComponent<CharacterController>();
+        if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>();
         currentHealth = maxHealth;
-        if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
+        if (cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
+        if(cameraTransform) initialCamPos = cameraTransform.localPosition;
     }
 
     private void Update()
     {
-        if (isDead) return;
-        if (isStunned) return; 
-        if (isBusy) return;
+        if (isDead || isBusy) return;
 
-        // 1. PARRY
-        if (Input.GetMouseButtonDown(1) && Time.time >= lastParryTime + parryCooldown)
+        if (Input.GetKeyDown(KeyCode.LeftControl)) ToggleCombatMode();
+
+        if (isInCombatMode)
         {
-            PerformParry();
-            return; 
-        }
-
-        if (Time.time < lastBasicAttackTime + basicAttackBlockDuration) return;
-
-        // 3. Temel Saldırı
-        if (canBasicAttack && Input.GetMouseButtonDown(0))
-        {
-            PerformBasicAttack();
-        }
-
-        // 4. Özel Saldırılar
-        CheckSpecialAttacks();
-    }
-    
-    private void OnDrawGizmosSelected()
-    {
-        if (attackPoint == null) return;
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(attackPoint.position, attackRange);
-    }
-
-    #endregion
-
-    #region Combat Logic
-
-    public bool TryBlockAttack(int incomingDamage, Transform attacker)
-    {
-        if (isDead) return false;
-
-        if (isParrying)
-        {
-            Debug.Log("✨ OYUNCU PARRYLEDİ!");
-            if (audioSource && parrySuccessSound)
-            {
-                audioSource.pitch = Random.Range(0.9f, 1.1f);
-                audioSource.PlayOneShot(parrySuccessSound);
-            }
-            StartCoroutine(ShakeCamera());
-            return true; 
-        }
-
-        TakeDamage(incomingDamage, attacker);
-        return false;
-    }
-
-    public void TakeDamage(int damageAmount, Transform attacker)
-    {
-        if (isDead || isParrying) return;
-
-        currentHealth -= damageAmount;
-        _animator.SetTrigger("Hit");
-        
-        if (bloodEffect != null) bloodEffect.Play();
-        if (cameraTransform != null) StartCoroutine(ShakeCamera());
-        
-        // Geriye tepme başlat
-        if (attacker != null) StartCoroutine(PlayerKnockbackRoutine(attacker));
-
-        Debug.Log("Player Hasar Aldı! Kalan Can: " + currentHealth);
-
-        if (currentHealth <= 0) Die();
-    }
-    
-    public void GetStunned()
-    {
-        if (isDead || isParrying) return;
-        StartCoroutine(StunRoutine());
-    }
-
-    private IEnumerator StunRoutine()
-    {
-        isStunned = true;
-        _animator.SetTrigger("Hit"); 
-        Debug.Log("😵 OYUNCU STUN YEDİ!");
-        
-        yield return new WaitForSeconds(stunDuration);
-        isStunned = false;
-    }
-
-    // --- GÜNCELLENEN KNOCKBACK RUTİNİ ---
-    private IEnumerator PlayerKnockbackRoutine(Transform attacker)
-    {
-        float timer = 0;
-        
-        // Saldırganın ters yönüne doğru vektör
-        Vector3 pushDir = (transform.position - attacker.position).normalized;
-        pushDir.y = 0; // Havaya fırlamasın
-
-        while(timer < knockbackDuration)
-        {
-            // İtme vektörü (Hız * Zaman)
-            Vector3 moveVector = pushDir * knockbackForce * Time.deltaTime;
-
-            // Eğer karakterde CharacterController varsa onunla hareket et (Daha güvenli)
-            if (_characterController != null)
-            {
-                _characterController.Move(moveVector);
-            }
-            else
-            {
-                // Yoksa Transform ile hareket et
-                transform.position += moveVector;
-            }
+            ScanForTargets();
+            if (currentTarget != null) FaceTarget();
             
-            timer += Time.deltaTime;
-            yield return null;
-        }
-    }
-    // -------------------------------------
-
-    private void PerformBasicAttack()
-    {
-        _animator.SetTrigger("Attack");
-        lastBasicAttackTime = Time.time;
-        
-        currentHitSound = swordHitSound;
-        currentAttackCausesStun = false; 
-        currentAttackDamage = basicAttackDamage; 
-
-        if (audioSource && swordSwingSound) audioSource.PlayOneShot(swordSwingSound);
-        StartCoroutine(AttackRoutine());
-    }
-    
-    private void CheckSpecialAttacks()
-    {
-        foreach (var skill in specialAttacks)
-        {
-            if (Input.GetKeyDown(skill.inputKey))
+            if (!isAttacking) 
             {
-                _animator.SetTrigger(skill.triggerName);
-                StartCoroutine(BusyRoutine(skill.duration));
-                
-                currentHitSound = skill.skillHitSound;
-                currentAttackCausesStun = skill.causesStun;
-                currentAttackDamage = skill.damage;
+                DetermineMouseDirection();
+            }
+        }
+        else
+        {
+            currentTarget = null;
+            currentDirection = AttackDir.Left; 
+            _animator.SetInteger("AttackDirection", 2);
+        }
 
-                if (audioSource && skill.skillActionSound) audioSource.PlayOneShot(skill.skillActionSound);
-                StartCoroutine(AttackRoutine());
-                break;
+        HandleCombatInput();
+    }
+
+    private void ToggleCombatMode()
+    {
+        if (isInCombatMode)
+        {
+            isInCombatMode = false;
+            currentTarget = null;
+            _animator.SetBool("CombatMode", false);
+        }
+        else
+        {
+            ScanForTargets(); 
+            if (currentTarget != null)
+            {
+                isInCombatMode = true;
+                _animator.SetBool("CombatMode", true);
             }
         }
     }
 
-    private IEnumerator AttackRoutine()
+    private void ScanForTargets()
     {
-        yield return new WaitForSeconds(hitTimingDelay);
-        Collider[] hitEnemies = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayers);
-        
-        bool hasHitTarget = false;
-        foreach(Collider enemy in hitEnemies)
+        Collider[] enemies = Physics.OverlapSphere(transform.position, lockOnRange, enemyLayers);
+        float shortestDist = Mathf.Infinity;
+        Transform nearest = null;
+        foreach (var enemy in enemies)
         {
-            EnemyAI enemyScript = enemy.GetComponent<EnemyAI>();
-            if(enemyScript != null)
+            float dist = Vector3.Distance(transform.position, enemy.transform.position);
+            if (enemy.transform != transform && dist < shortestDist)
             {
-                // Hasar verirken kendimizi (transform) de yolluyoruz ki Enemy bizi tanısın ve bizden uzağa savrulsun
-                enemyScript.TakeDamage(currentAttackDamage, transform); 
-                hasHitTarget = true;
+                shortestDist = dist;
+                nearest = enemy.transform;
+            }
+        }
+        currentTarget = nearest;
+    }
+
+    private void FaceTarget()
+    {
+        if(currentTarget == null) return;
+        Vector3 dir = (currentTarget.position - transform.position).normalized;
+        dir.y = 0;
+        if(dir != Vector3.zero) 
+        {
+            Quaternion lookRot = Quaternion.LookRotation(dir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * rotationSpeed);
+        }
+    }
+
+    private void DetermineMouseDirection()
+    {
+        float x = Input.GetAxis("Mouse X");
+        float y = Input.GetAxis("Mouse Y");
+        
+        if (Mathf.Abs(x) < mouseThreshold && Mathf.Abs(y) < mouseThreshold) return;
+
+        if (Mathf.Abs(x) > Mathf.Abs(y)) currentDirection = x > 0 ? AttackDir.Right : AttackDir.Left;
+        else currentDirection = AttackDir.Up;
+
+        _animator.SetInteger("AttackDirection", (int)currentDirection);
+    }
+
+    private void HandleCombatInput()
+    {
+        if (isAttacking && Time.time < nextAttackTime) return;
+
+        // BLOK
+        if (Input.GetMouseButton(1)) 
+        {
+            isBlocking = true;
+            _animator.SetBool("IsBlocking", true);
+        }
+        else
+        {
+            isBlocking = false;
+            _animator.SetBool("IsBlocking", false);
+        }
+
+        // SALDIRI
+        if (Input.GetMouseButtonDown(0) && !isBlocking)
+        {
+            if(Time.time >= nextAttackTime)
+            {
+                PerformAttack();
+            }
+        }
+        
+        if (!isBlocking)
+        {
+            foreach(var skill in specialAttacks)
+            {
+                 if(Input.GetKeyDown(skill.inputKey) && Time.time >= nextAttackTime)
+                 {
+                     StartCoroutine(PerformSpecialAttack(skill));
+                     break;
+                 }
+            }
+        }
+    }
+
+    public void TakeDamage(int damage, Transform attacker, int attackDir, float kbForce, float kbTime)
+    {
+        if (isDead) return;
+
+        // PARRY KONTROLÜ
+        if (isBlocking)
+        {
+            if ((int)currentDirection == attackDir && attackDir != 3) // 3=Special (Parrylenemez)
+            {
+                _animator.SetTrigger("ParrySuccess");
+                if(audioSource && parrySuccessSound) audioSource.PlayOneShot(parrySuccessSound);
+                TriggerShake();
                 
-                if (currentAttackCausesStun)
-                {
-                    enemyScript.GetStunned(1.5f); 
-                }
-                else
-                {
-                    enemyScript.GetStunned(0.2f); 
-                }
+                EnemyAI enemyScript = attacker.GetComponent<EnemyAI>();
+                if(enemyScript) enemyScript.GetStunned(parryStunDuration);
+                return; 
             }
         }
 
-        if (hasHitTarget && audioSource && currentHitSound != null)
+        currentHealth -= damage;
+        
+        // --- PARTICLE OPTİMİZASYONU ---
+        if(hitEffectPrefab) 
         {
-             audioSource.pitch = Random.Range(0.9f, 1.1f);
-             audioSource.PlayOneShot(currentHitSound);
-             StartCoroutine(ShakeCamera());
+            GameObject fx = Instantiate(hitEffectPrefab, transform.position + Vector3.up, Quaternion.identity);
+            Destroy(fx, 2.0f); // 2 saniye sonra silinsin
         }
+        // ------------------------------
+
+        if(audioSource && hitSound) audioSource.PlayOneShot(hitSound);
+        TriggerShake();
+        if(attacker && kbForce > 0) StartCoroutine(KnockbackRoutine(attacker, kbForce, kbTime));
+        
+        if (currentHealth <= 0) Die(attackDir);
+        else if (!isAttacking && !isBusy) _animator.SetTrigger("Hit");
     }
 
-    private void PerformParry()
+    public void GetStunned(float duration)
     {
-        _animator.SetTrigger("Parry");
-        lastParryTime = Time.time;
-        if (audioSource && parryActionSound) audioSource.PlayOneShot(parryActionSound);
-        StartCoroutine(ParryRoutine());
+        if (isDead) return;
+        StartCoroutine(StunRoutine(duration));
     }
 
-    private IEnumerator ParryRoutine()
+    private IEnumerator StunRoutine(float duration)
     {
-        isBusy = true;      
-        isParrying = true;  
-        yield return new WaitForSeconds(parryWindowDuration);
-        isParrying = false; 
-        isBusy = false;     
-    }
+        isBusy = true; 
+        isAttacking = false;
+        isBlocking = false;
+        _animator.SetBool("IsBlocking", false);
+        _animator.SetTrigger("Hit"); 
+        
+        yield return new WaitForSeconds(duration);
 
-    private void Die()
-    {
-        isDead = true;
-        _animator.SetTrigger("Die");
-        this.enabled = false; 
-    }
-
-    private IEnumerator BusyRoutine(float time)
-    {
-        isBusy = true;
-        yield return new WaitForSeconds(time); 
         isBusy = false;
     }
 
-    private IEnumerator ShakeCamera()
-    {
-        originalCameraPos = cameraTransform.localPosition;
-        float elapsed = 0.0f;
-        while (elapsed < shakeDuration)
-        {
-            float x = Random.Range(-1f, 1f) * shakeMagnitude;
-            float y = Random.Range(-1f, 1f) * shakeMagnitude;
-            cameraTransform.localPosition = new Vector3(originalCameraPos.x + x, originalCameraPos.y + y, originalCameraPos.z);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-        cameraTransform.localPosition = originalCameraPos;
-    }
-
-    #endregion
+    private void PerformAttack() { isAttacking = true; nextAttackTime = Time.time + attackCooldown; _animator.SetTrigger("Attack"); if (audioSource && swingSound) audioSource.PlayOneShot(swingSound); StartCoroutine(LungeRoutine()); StartCoroutine(AttackStateRoutine(attackCooldown)); StartCoroutine(AttackHitCheckRoutine(basicAttackDamage, false, 0, 0, 0)); }
+    private IEnumerator PerformSpecialAttack(SpecialAttack skill) { isBusy = true; nextAttackTime = Time.time + skill.duration; _animator.SetTrigger(skill.triggerName); if(audioSource && skill.skillActionSound) audioSource.PlayOneShot(skill.skillActionSound); StartCoroutine(AttackStateRoutine(skill.duration)); yield return StartCoroutine(AttackHitCheckRoutine(skill.damage, skill.causesStun, skill.stunDuration, skill.knockbackForce, skill.knockbackDuration, true)); isBusy = false; }
+    private IEnumerator LungeRoutine() { float timer = 0; while(timer < lungeDuration) { _characterController.Move(transform.forward * attackLungeForce * Time.deltaTime); timer += Time.deltaTime; yield return null; } }
+    private IEnumerator AttackHitCheckRoutine(int damage, bool stun, float stunTime, float kbForce, float kbTime, bool isSpecial = false) { yield return new WaitForSeconds(0.2f); Collider[] hits = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayers); foreach(var hit in hits) { EnemyAI enemy = hit.GetComponent<EnemyAI>(); if(enemy) { int attackDirInt = isSpecial ? 3 : (int)currentDirection; enemy.TakeDamage(damage, transform, attackDirInt, kbForce, kbTime); if(stun) enemy.GetStunned(stunTime); } } }
+    private void Die(int killingBlowDir) { isDead = true; this.enabled = false; _animator.SetInteger("DeathType", killingBlowDir); _animator.SetTrigger("Die"); }
+    private IEnumerator AttackStateRoutine(float time) { yield return new WaitForSeconds(time); isAttacking = false; }
+    private void TriggerShake() { if(cameraTransform) StartCoroutine(ShakeRoutine()); }
+    private IEnumerator ShakeRoutine() { cameraTransform.localPosition = initialCamPos; float e = 0; while(e < shakeDuration) { Vector3 rnd = Random.insideUnitSphere * shakeMagnitude; cameraTransform.localPosition = initialCamPos + rnd; e += Time.deltaTime; yield return null; } cameraTransform.localPosition = initialCamPos; }
+    private IEnumerator KnockbackRoutine(Transform attacker, float force, float duration) { float t = 0; Vector3 dir = (transform.position - attacker.position).normalized; dir.y=0; while(t<duration){ if(_characterController) _characterController.Move(dir*force*Time.deltaTime); else transform.position += dir*force*Time.deltaTime; t+=Time.deltaTime; yield return null; } }
 }
