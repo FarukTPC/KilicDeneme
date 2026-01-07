@@ -605,13 +605,13 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.59
+  m_Height: 1.65
   m_Radius: 0.2
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0.93, z: -0.015}
+  m_Center: {x: 0, y: 0.89, z: -0.015}
 --- !u!114 &428562011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -646,29 +646,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc6c4aaa5768f40408e918bcb6d46184, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
-  comboResetTime: 1
-  attackCooldown: 0.7
+  isInCombatMode: 0
+  lockOnRange: 8
+  rotationSpeed: 8
+  currentDirection: 1
+  mouseThreshold: 0.1
+  parryStunDuration: 2
+  parrySuccessSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  attackCooldown: 0.8
+  attackLungeForce: 2
+  lungeDuration: 0.2
   basicAttackDamage: 10
   basicStunDuration: 0.3
-  basicKnockbackForce: 2
-  basicKnockbackDuration: 0.2
-  audioSource: {fileID: 428562016}
-  swordSwingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-  swordHitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
-  parryActionSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-  parrySuccessSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  maxHealth: 100
+  isDead: 0
+  isBusy: 0
   attackPoint: {fileID: 594195401}
   attackRange: 1.5
   enemyLayers:
     serializedVersion: 2
     m_Bits: 64
-  hitTimingDelay: 0.2
-  maxHealth: 100
-  currentHealth: 0
-  isDead: 0
-  parryWindowDuration: 0.5
-  parryCooldown: 1
-  isParrying: 0
+  audioSource: {fileID: 428562016}
+  swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+  hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
   hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
   cameraTransform: {fileID: 330585546}
   shakeDuration: 0.05
@@ -684,7 +684,6 @@ MonoBehaviour:
     knockbackForce: 12
     knockbackDuration: 0.3
     skillActionSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-    skillHitSound: {fileID: 8300000, guid: 4ba2c343ab1918f4d81ad8b9744b76cf, type: 3}
   - attackName: ShieldAttack
     inputKey: 102
     triggerName: ShieldA
@@ -695,7 +694,6 @@ MonoBehaviour:
     knockbackForce: 8
     knockbackDuration: 0.2
     skillActionSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-    skillHitSound: {fileID: 8300000, guid: ef1beaf830c661540b0417a02dc79f6a, type: 3}
 --- !u!82 &428562016
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1415,7 +1413,7 @@ PrefabInstance:
     - target: {fileID: 5866666021909216657, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       propertyPath: m_Controller
       value: 
-      objectReference: {fileID: 9100000, guid: 8a40acd4e7ca4a049900ca54876fdd23, type: 2}
+      objectReference: {fileID: 9100000, guid: c49e35bd76f6b014a82bb5430754f500, type: 2}
     - target: {fileID: 6240733294840144465, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       propertyPath: m_Layer
       value: 6
@@ -1680,22 +1678,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
   damage: 5
-  knockbackForce: 2
-  knockbackDuration: 0.2
-  attackCooldown: 0.75
-  basicStunDuration: 0.4
-  kickStunDuration: 2
+  specialAttackChance: 0.2
+  kickDamage: 5
+  kickStunDuration: 1.5
+  kickKnockback: 6
+  shieldDamage: 8
   shieldStunDuration: 1
+  shieldKnockback: 3
+  parryStunDuration: 2
+  parrySuccessSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  defenseFrequency: 0.5
   maxHealth: 100
   isDead: 0
-  parryChance: 0.1
-  walkSpeed: 2
-  runSpeed: 4
-  patrolRadius: 9
-  detectionRange: 6
   attackRange: 1.5
-  patrolWaitTime: 3
-  chaseTimeout: 10
+  detectionRange: 6
+  attackCooldown: 0.75
   hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
   audioSource: {fileID: 2130248825}
   hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}

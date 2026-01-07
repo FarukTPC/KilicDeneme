@@ -9,8 +9,8 @@ public class EnemyAI : MonoBehaviour
     [Header("Combat Stats")]
     public int damage = 10;
     
-    [Header("Special Attacks (New)")]
-    [Range(0f, 1f)] public float specialAttackChance = 0.3f; // %30 Şans
+    [Header("Special Attacks")]
+    [Range(0f, 1f)] public float specialAttackChance = 0.3f; // %30 Özel Vuruş Şansı
     public int kickDamage = 5;
     public float kickStunDuration = 1.5f;
     public float kickKnockback = 6f;
@@ -99,9 +99,8 @@ public class EnemyAI : MonoBehaviour
 
         if (!isAttacking && Time.time >= nextActionTime)
         {
-            // Yapay Zeka Kararı
             float decision = Random.value;
-
+            // Defans şansı
             if (decision < defenseFrequency)
             {
                 StartCoroutine(DefensiveManeuver());
@@ -118,11 +117,10 @@ public class EnemyAI : MonoBehaviour
         StopBlocking(); 
         isAttacking = true;
 
-        // --- SPECIAL ATTACK KONTROLÜ ---
+        // --- ÖZEL SALDIRI HESABI ---
         float specialRoll = Random.value;
         bool isSpecial = (specialRoll < specialAttackChance);
         
-        // Değerler
         int currentDmg = damage;
         float currentStun = 0f;
         float currentKbForce = 0f;
@@ -130,34 +128,32 @@ public class EnemyAI : MonoBehaviour
 
         if (isSpecial)
         {
-            // Tekme mi Kalkan mı? (%50 şans)
+            // Tekme (%50) veya Kalkan (%50)
             if (Random.value > 0.5f)
             {
-                // KICK
                 animator.SetTrigger("Kick");
                 currentDmg = kickDamage;
                 currentStun = kickStunDuration;
                 currentKbForce = kickKnockback;
-                attackDirInt = 3; // Special (Unparryable)
+                attackDirInt = 3; 
             }
             else
             {
-                // SHIELD
-                animator.SetTrigger("ShieldA"); // Senin resimdeki parametre adı
+                animator.SetTrigger("ShieldA");
                 currentDmg = shieldDamage;
                 currentStun = shieldStunDuration;
                 currentKbForce = shieldKnockback;
-                attackDirInt = 3; // Special
+                attackDirInt = 3; 
             }
         }
         else
         {
-            // NORMAL ATAK
+            // NORMAL KILIÇ
             int randDir = Random.Range(0, 3);
             currentDirection = (AttackDir)randDir;
             animator.SetInteger("AttackDirection", (int)currentDirection);
             
-            // Unity Bug Fix: Trigger'ı hemen algılaması için 1 kare bekle
+            // Unity'nin bool değişimini algılaması için 1 kare bekle
             yield return new WaitForEndOfFrame();
             animator.SetTrigger("Attack");
             attackDirInt = (int)currentDirection;
@@ -165,18 +161,14 @@ public class EnemyAI : MonoBehaviour
 
         if(audioSource && swingSound) audioSource.PlayOneShot(swingSound);
 
-        // --- ANIMASYON SENKRONİZASYONU ---
-        // Videodaki "vurmama" sorunu için süreyi biraz arttırdım
-        // Eğer özel saldırıysa biraz daha uzun bekleyebiliriz (animasyona bağlı)
         yield return new WaitForSeconds(0.5f); 
 
-        // HASAR KONTROLÜ
-        if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange + 0.8f) // Menzili azıcık arttırdım (Tekme için)
+        // HASAR
+        if (player != null && Vector3.Distance(transform.position, player.position) <= attackRange + 0.8f)
         {
             PlayerCombat pc = player.GetComponent<PlayerCombat>();
             if (pc)
             {
-                // Hasar ver + Varsa Stun + Varsa Knockback
                 pc.TakeDamage(currentDmg, transform, attackDirInt, currentKbForce, 0.2f);
                 if (currentStun > 0) pc.GetStunned(currentStun);
             }
@@ -214,7 +206,7 @@ public class EnemyAI : MonoBehaviour
     {
         if (isDead) return;
 
-        // Parry Kontrolü
+        // PARRY (Düşman Blokluyorsa ve Yön Doğruysa)
         if (isBlocking && (int)currentDirection == attackDir && attackDir != 3)
         {
             animator.SetTrigger("ParrySuccess"); 
@@ -231,7 +223,7 @@ public class EnemyAI : MonoBehaviour
         if(hitEffectPrefab)
         {
              GameObject fx = Instantiate(hitEffectPrefab, transform.position + Vector3.up, Quaternion.identity);
-             Destroy(fx, 2.0f);
+             Destroy(fx, 2.0f); // 2 saniye sonra silinsin
         }
         // -----------------------------
 
@@ -256,14 +248,11 @@ public class EnemyAI : MonoBehaviour
     {
         if(isDead) return;
         isDead = true;
-        
         StopBlocking();
         agent.enabled = false;
         GetComponent<Collider>().enabled = false;
-
         animator.SetInteger("DeathType", killingDir);
         animator.SetTrigger("Die");
-        
         this.enabled = false;
     }
 
@@ -276,10 +265,18 @@ public class EnemyAI : MonoBehaviour
     private IEnumerator StunRoutine(float duration)
     {
         isStunned = true;
-        StopBlocking();
-        isAttacking = false;
         
-        animator.SetTrigger("Hit"); 
+        // 1. ZORLA BLOKU KAPAT
+        isBlocking = false;
+        animator.SetBool("IsBlocking", false);
+        
+        // 2. BOOL DEĞİŞİMİNİ ANİMATOR ALGILASIN DİYE BEKLE
+        // Bu çok önemli, yoksa "Hem blok hem stun" karışıklığı olur.
+        yield return new WaitForEndOfFrame();
+
+        // 3. ARTIK "Hit" DEĞİL "Stun" ÇAĞIRIYORUZ!
+        animator.SetTrigger("Stun"); 
+        
         if(agent.isOnNavMesh) agent.isStopped = true;
         
         yield return new WaitForSeconds(duration);

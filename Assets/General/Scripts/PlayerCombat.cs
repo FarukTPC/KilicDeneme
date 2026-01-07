@@ -57,7 +57,7 @@ public class PlayerCombat : MonoBehaviour
     public bool isDead = false;
     private bool isBlocking = false;
     private bool isAttacking = false; 
-    private bool isBusy = false;
+    public bool isBusy = false; // Public yaptık, dışarıdan erişilebilsin
 
     [Header("References")]
     public Transform attackPoint;
@@ -76,6 +76,9 @@ public class PlayerCombat : MonoBehaviour
 
     private Animator _animator;
     private CharacterController _characterController;
+    
+    // YENİ: Oyuncunun hareket scriptini buradan kontrol edeceğiz
+    private PlayerController _playerController; 
 
     #endregion
 
@@ -83,6 +86,9 @@ public class PlayerCombat : MonoBehaviour
     {
         _animator = GetComponent<Animator>();
         _characterController = GetComponent<CharacterController>();
+        // PlayerController scriptini otomatik bul (Aynı objede olduğunu varsayıyoruz)
+        _playerController = GetComponent<PlayerController>();
+        
         if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>();
         currentHealth = maxHealth;
         if (cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
@@ -221,7 +227,7 @@ public class PlayerCombat : MonoBehaviour
         // PARRY KONTROLÜ
         if (isBlocking)
         {
-            if ((int)currentDirection == attackDir && attackDir != 3) // 3=Special (Parrylenemez)
+            if ((int)currentDirection == attackDir && attackDir != 3) 
             {
                 _animator.SetTrigger("ParrySuccess");
                 if(audioSource && parrySuccessSound) audioSource.PlayOneShot(parrySuccessSound);
@@ -235,13 +241,11 @@ public class PlayerCombat : MonoBehaviour
 
         currentHealth -= damage;
         
-        // --- PARTICLE OPTİMİZASYONU ---
         if(hitEffectPrefab) 
         {
             GameObject fx = Instantiate(hitEffectPrefab, transform.position + Vector3.up, Quaternion.identity);
-            Destroy(fx, 2.0f); // 2 saniye sonra silinsin
+            Destroy(fx, 2.0f);
         }
-        // ------------------------------
 
         if(audioSource && hitSound) audioSource.PlayOneShot(hitSound);
         TriggerShake();
@@ -257,16 +261,29 @@ public class PlayerCombat : MonoBehaviour
         StartCoroutine(StunRoutine(duration));
     }
 
+    // --- BURASI DEĞİŞTİ: STUN KİLİDİ ---
     private IEnumerator StunRoutine(float duration)
     {
         isBusy = true; 
         isAttacking = false;
+        
+        // 1. BLOKU KAPAT
         isBlocking = false;
         _animator.SetBool("IsBlocking", false);
-        _animator.SetTrigger("Hit"); 
+
+        // 2. PLAYER CONTROLLER'I (Hareket/Kamera) KAPAT
+        // Bu sayede fareyi çevirse bile kamera dönmez, WASD çalışmaz.
+        if (_playerController != null) _playerController.enabled = false;
+
+        // 3. ANİMASYON SENKRONİZASYONU
+        yield return new WaitForEndOfFrame();
+        _animator.SetTrigger("Stun"); 
         
+        // 4. BEKLE
         yield return new WaitForSeconds(duration);
 
+        // 5. KONTROLLERİ GERİ AÇ
+        if (_playerController != null) _playerController.enabled = true;
         isBusy = false;
     }
 
