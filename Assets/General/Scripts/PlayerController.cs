@@ -62,10 +62,8 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         // 1. ÖLÜM VE STUN KONTROLÜ
-        // Eğer karakter ölü ya da stun yemişse (Busy) hareket edemez.
         if (combatScript != null && (combatScript.status.isDead || combatScript.status.isBusy))
         {
-            // Havada donup kalmasın diye yer çekimi işlemeye devam etsin
             ApplyGravity();
             return;
         }
@@ -76,48 +74,72 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
-        // Yere basıyor muyuz?
-        isGrounded = Physics.CheckSphere(refs.groundCheck.position, refs.groundDistance, refs.groundMask);
+        // Zemin Kontrolü
+        if(refs.groundCheck) // Hata vermesin diye null check
+            isGrounded = Physics.CheckSphere(refs.groundCheck.position, refs.groundDistance, refs.groundMask);
+        
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f; // Yere yapışık kalması için küçük bir kuvvet
+            velocity.y = -2f; 
         }
 
-        // Klavye Girdileri
+        // Girdiler
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
-        Vector3 direction = new Vector3(x, 0f, z).normalized;
+        Vector3 inputDir = new Vector3(x, 0f, z).normalized;
 
-        // Hareket varsa
-        if (direction.magnitude >= 0.1f)
+        // --- HAREKET MANTIĞI ---
+
+        // DURUM A: SAVAŞ MODUNDAYIZ VE HEDEF VAR (LOCK-ON MOVEMENT)
+        if (combatScript.combat.isInCombatMode && combatScript.currentTarget != null)
         {
-            // Kameranın baktığı yöne göre hareket açısını hesapla
-            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + refs.cameraTransform.eulerAngles.y;
+            // 1. Karakteri Düşmana Döndür (Gövdeyi Kilitle)
+            Vector3 dirToEnemy = (combatScript.currentTarget.position - transform.position).normalized;
+            dirToEnemy.y = 0; // Karakter yukarı/aşağı bakmasın, sadece sağ/sol
             
-            // Karakteri o yöne yumuşakça döndür
-            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, moveSettings.turnSmoothTime);
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            if (dirToEnemy != Vector3.zero)
+            {
+                Quaternion lookRot = Quaternion.LookRotation(dirToEnemy);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 10f);
+            }
 
-            // Hareket yönü
-            Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            // 2. Yönlü Hareket (Strafe) - Düşmana kilitliyken yan yan yürüme
+            // Transform.right = Karakterin sağı, Transform.forward = Karakterin önü
+            Vector3 moveDir = (transform.right * x) + (transform.forward * z);
             
-            // Koşma kontrolü (Shift)
-            float speed = Input.GetKey(KeyCode.LeftShift) ? moveSettings.runSpeed : moveSettings.walkSpeed;
-            
-            // Savaş Modunda mecburi yürüme (Opsiyonel: İstersen kaldırabilirsin)
-            if (combatScript.combat.isInCombatMode) speed = moveSettings.walkSpeed;
+            // Combat'ta genelde yürüme hızı kullanılır
+            controller.Move(moveDir.normalized * moveSettings.walkSpeed * Time.deltaTime);
 
-            controller.Move(moveDir.normalized * speed * Time.deltaTime);
-            
-            // Animasyon Hızı
-            // Blend Tree için Speed parametresi (0 = Dur, 1 = Yürü, 2+ = Koş)
-            float animSpeed = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
+            // Animasyon (Eğer hareket ediyorsak Speed=1, yoksa 0)
+            // İleride buraya "Blend Tree" ile sağ/sol animasyonları eklenebilir.
+            float animSpeed = inputDir.magnitude > 0.1f ? 1f : 0f;
             animator.SetFloat("Speed", animSpeed, 0.1f, Time.deltaTime);
         }
+        // DURUM B: NORMAL KEŞİF MODU (FREE ROAM)
         else
         {
-            // Hareket yoksa animasyon hızı 0
-            animator.SetFloat("Speed", 0, 0.1f, Time.deltaTime);
+            if (inputDir.magnitude >= 0.1f)
+            {
+                // Kameranın baktığı yöne göre hesapla
+                float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + refs.cameraTransform.eulerAngles.y;
+                
+                // Karakteri gittiği yöne döndür
+                float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, moveSettings.turnSmoothTime);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+
+                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                
+                // Shift ile koşma
+                float speed = Input.GetKey(KeyCode.LeftShift) ? moveSettings.runSpeed : moveSettings.walkSpeed;
+                controller.Move(moveDir.normalized * speed * Time.deltaTime);
+                
+                float animSpeed = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
+                animator.SetFloat("Speed", animSpeed, 0.1f, Time.deltaTime);
+            }
+            else
+            {
+                animator.SetFloat("Speed", 0, 0.1f, Time.deltaTime);
+            }
         }
 
         // Zıplama

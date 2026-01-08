@@ -4,35 +4,27 @@ using System.Collections;
 
 public class PlayerCombat : MonoBehaviour
 {
-    // Yönler: 0=Up, 1=Right, 2=Left
     public enum AttackDir { Up = 0, Right = 1, Left = 2 }
 
-    // --- GRUPLAMA SINIFLARI (COLLAPSIBLE CLASSES) ---
-    
+    // --- AYAR GRUPLARI ---
     [System.Serializable]
     public class CombatSettings
     {
-        [Tooltip("Savaş modu aktif mi?")]
         public bool isInCombatMode = false;
-        [Tooltip("Otomatik kilitlenme mesafesi.")]
         public float lockOnRange = 10f;
-        [Tooltip("Düşmana dönüş hızı.")]
         public float rotationSpeed = 10f;
     }
 
     [System.Serializable]
     public class DirectionalSettings
     {
-        [Tooltip("Şu anki saldırı yönü.")]
         public AttackDir currentDirection = AttackDir.Left;
-        [Tooltip("Mouse hassasiyeti.")]
         public float mouseThreshold = 0.1f;
     }
 
     [System.Serializable]
     public class ParrySettings
     {
-        [Tooltip("Parry sonrası düşman ne kadar sersemlesin?")]
         public float stunDuration = 2.0f;
         public AudioClip successSound;
     }
@@ -40,13 +32,9 @@ public class PlayerCombat : MonoBehaviour
     [System.Serializable]
     public class AttackSettings
     {
-        [Tooltip("Saldırı bekleme süresi.")]
         public float cooldown = 0.6f;
-        [Tooltip("İleri atılma gücü.")]
         public float lungeForce = 4.0f;
-        [Tooltip("İleri atılma süresi.")]
         public float lungeDuration = 0.2f;
-        [Tooltip("Temel hasar.")]
         public int damage = 15;
         public float hitStunDuration = 0.5f;
     }
@@ -56,7 +44,7 @@ public class PlayerCombat : MonoBehaviour
     {
         public int maxHealth = 100;
         public bool isDead = false;
-        public bool isBusy = false; // Stun vb. durumlarda true olur
+        public bool isBusy = false;
     }
 
     [System.Serializable]
@@ -66,7 +54,9 @@ public class PlayerCombat : MonoBehaviour
         public float attackRange = 1.0f;
         public LayerMask enemyLayers;
         public GameObject hitEffectPrefab;
-        public Transform cameraTransform;
+        
+        // YENİ: TPSCamera referansı
+        public TPSCamera tpsCamera; 
         
         [Header("Audio")]
         public AudioSource audioSource;
@@ -93,9 +83,6 @@ public class PlayerCombat : MonoBehaviour
         public AudioClip skillActionSound; 
     }
 
-    // --- ANA DEĞİŞKENLER (INSPECTOR'DA GÖRÜNENLER) ---
-
-    // Artık Inspector'da bu başlıklar açılıp kapanabilir olacak!
     public CombatSettings combat;
     public DirectionalSettings direction;
     public ParrySettings parry;
@@ -103,16 +90,13 @@ public class PlayerCombat : MonoBehaviour
     public StatusSettings status;
     public ReferenceSettings refs;
     
-    [Tooltip("Özel Yetenek Listesi")]
     public List<SpecialAttack> specialAttacks;
 
-    // --- GİZLİ DEĞİŞKENLER (STATE) ---
     private float nextAttackTime = 0f;
     private int currentHealth;
     private bool isBlocking = false;
     private bool isAttacking = false;
-    private Transform currentTarget;
-    private Vector3 initialCamPos;
+    public Transform currentTarget; 
     
     private Animator _animator;
     private CharacterController _characterController;
@@ -125,11 +109,11 @@ public class PlayerCombat : MonoBehaviour
         _playerController = GetComponent<PlayerController>();
 
         if (!refs.audioSource) refs.audioSource = gameObject.AddComponent<AudioSource>();
-        
         currentHealth = status.maxHealth;
         
-        if (refs.cameraTransform == null && Camera.main) refs.cameraTransform = Camera.main.transform;
-        if (refs.cameraTransform) initialCamPos = refs.cameraTransform.localPosition;
+        // Kamerayı otomatik bul
+        if (refs.tpsCamera == null && Camera.main) 
+            refs.tpsCamera = Camera.main.GetComponent<TPSCamera>();
     }
 
     private void Update()
@@ -142,7 +126,6 @@ public class PlayerCombat : MonoBehaviour
         {
             ScanForTargets();
             if (currentTarget != null) FaceTarget();
-            
             if (!isAttacking) DetermineMouseDirection();
         }
         else
@@ -207,12 +190,9 @@ public class PlayerCombat : MonoBehaviour
     {
         float x = Input.GetAxis("Mouse X");
         float y = Input.GetAxis("Mouse Y");
-        
         if (Mathf.Abs(x) < direction.mouseThreshold && Mathf.Abs(y) < direction.mouseThreshold) return;
-
         if (Mathf.Abs(x) > Mathf.Abs(y)) direction.currentDirection = x > 0 ? AttackDir.Right : AttackDir.Left;
         else direction.currentDirection = AttackDir.Up;
-
         _animator.SetInteger("AttackDirection", (int)direction.currentDirection);
     }
 
@@ -220,7 +200,6 @@ public class PlayerCombat : MonoBehaviour
     {
         if (isAttacking && Time.time < nextAttackTime) return;
 
-        // BLOK
         if (Input.GetMouseButton(1)) 
         {
             isBlocking = true;
@@ -232,13 +211,9 @@ public class PlayerCombat : MonoBehaviour
             _animator.SetBool("IsBlocking", false);
         }
 
-        // SALDIRI
         if (Input.GetMouseButtonDown(0) && !isBlocking)
         {
-            if(Time.time >= nextAttackTime)
-            {
-                PerformAttack();
-            }
+            if(Time.time >= nextAttackTime) PerformAttack();
         }
         
         if (!isBlocking)
@@ -258,13 +233,14 @@ public class PlayerCombat : MonoBehaviour
     {
         if (status.isDead) return;
 
-        // PARRY KONTROLÜ
         if (isBlocking)
         {
             if ((int)direction.currentDirection == attackDir && attackDir != 3) 
             {
                 _animator.SetTrigger("ParrySuccess");
                 if(refs.audioSource && parry.successSound) refs.audioSource.PlayOneShot(parry.successSound);
+                
+                // Parry başarılı sarsıntısı
                 TriggerShake();
                 
                 EnemyAI enemyScript = attacker.GetComponent<EnemyAI>();
@@ -282,11 +258,21 @@ public class PlayerCombat : MonoBehaviour
         }
 
         if(refs.audioSource && refs.hitSound) refs.audioSource.PlayOneShot(refs.hitSound);
+        
+        // HASAR SARSINTISI (Artık ışınlanma yok!)
         TriggerShake();
+        
         if(attacker && kbForce > 0) StartCoroutine(KnockbackRoutine(attacker, kbForce, kbTime));
         
         if (currentHealth <= 0) Die(attackDir);
         else if (!isAttacking && !status.isBusy) _animator.SetTrigger("Hit");
+    }
+
+    // YENİ TİTREŞİM FONKSİYONU
+    public void TriggerShake()
+    {
+        if(refs.tpsCamera)
+            refs.tpsCamera.ShakeCamera(refs.shakeDuration, refs.shakeMagnitude);
     }
 
     public void GetStunned(float duration)
@@ -299,7 +285,6 @@ public class PlayerCombat : MonoBehaviour
     {
         status.isBusy = true; 
         isAttacking = false;
-        
         isBlocking = false;
         _animator.SetBool("IsBlocking", false);
 
@@ -359,6 +344,9 @@ public class PlayerCombat : MonoBehaviour
                 int attackDirInt = isSpecial ? 3 : (int)direction.currentDirection; 
                 enemy.TakeDamage(damage, transform, attackDirInt, kbForce, kbTime); 
                 if(stun) enemy.GetStunned(stunTime); 
+                
+                // İstersen burada vuruş hissi için ufak bir shake ekleyebilirsin:
+                // TriggerShake(); // Ama şiddetini düşük tutmak gerekebilir.
             } 
         } 
     }
@@ -373,22 +361,6 @@ public class PlayerCombat : MonoBehaviour
 
     private IEnumerator AttackStateRoutine(float time) { yield return new WaitForSeconds(time); isAttacking = false; }
     
-    private void TriggerShake() { if(refs.cameraTransform) StartCoroutine(ShakeRoutine()); }
-    
-    private IEnumerator ShakeRoutine() 
-    { 
-        refs.cameraTransform.localPosition = initialCamPos; 
-        float e = 0; 
-        while(e < refs.shakeDuration) 
-        { 
-            Vector3 rnd = Random.insideUnitSphere * refs.shakeMagnitude; 
-            refs.cameraTransform.localPosition = initialCamPos + rnd; 
-            e += Time.deltaTime; 
-            yield return null; 
-        } 
-        refs.cameraTransform.localPosition = initialCamPos; 
-    }
-
     private IEnumerator KnockbackRoutine(Transform attacker, float force, float duration) 
     { 
         float t = 0; 
