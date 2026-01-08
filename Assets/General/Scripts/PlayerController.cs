@@ -1,111 +1,136 @@
 using UnityEngine;
-using System.Collections;
 
+[RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    #region Variables (Değişkenler)
+    // --- KATLANABİLİR AYAR GRUPLARI ---
 
-    [Header("Movement Settings")]
+    [System.Serializable]
+    public class MovementSettings
+    {
+        [Tooltip("Yürüme hızı.")]
+        public float walkSpeed = 2.0f;
+        [Tooltip("Koşma hızı (Shift ile).")]
+        public float runSpeed = 5.0f;
+        [Tooltip("Karakterin dönme yumuşaklığı.")]
+        public float turnSmoothTime = 0.1f;
+        [Tooltip("Zıplama yüksekliği.")]
+        public float jumpHeight = 1.0f;
+        [Tooltip("Yer çekimi kuvveti (Negatif olmalı).")]
+        public float gravity = -9.81f;
+    }
+
+    [System.Serializable]
+    public class ReferenceSettings
+    {
+        [Tooltip("Ana Kamera Transformu (Otomatik bulunur).")]
+        public Transform cameraTransform;
+        [Tooltip("Zemin kontrolü için ayakların altındaki boş obje.")]
+        public Transform groundCheck;
+        [Tooltip("Zemin algılama yarıçapı.")]
+        public float groundDistance = 0.4f;
+        [Tooltip("Zemin katmanı.")]
+        public LayerMask groundMask;
+    }
+
+    // --- ANA DEĞİŞKENLER ---
     
-    [Tooltip("Yürüme Hızı")]
-    [Range(0f, 10f)] // 0 ile 10 arasında bir slider oluşturur
-    [SerializeField] private float walkSpeed = 3f; 
+    public MovementSettings moveSettings;
+    public ReferenceSettings refs;
 
-    [Tooltip("Koşma Hızı (Shift'e basınca)")]
-    [Range(0f, 20f)] // 0 ile 20 arasında bir slider oluşturur
-    [SerializeField] private float runSpeed = 6f;
-
-    [Tooltip("Dönüş yumuşaklığı (Daha düşük = Daha keskin)")]
-    [Range(0f, 1f)] // 0 ile 1 arasında hassas ayar
-    [SerializeField] private float turnSmoothTime = 0.1f;
+    // --- GİZLİ DEĞİŞKENLER ---
     
-    [Tooltip("Yerçekimi kuvveti")]
-    [SerializeField] private float gravity = -9.81f;
+    private CharacterController controller;
+    private PlayerCombat combatScript;
+    private Animator animator;
 
-    [Header("Animation Settings")]
-    
-    [Tooltip("Animasyonlar arası geçiş süresi")]
-    [Range(0f, 1f)]
-    [SerializeField] private float animDampTime = 0.1f;
-
-    // --- Private References ---
-    private CharacterController _characterController;
-    private Animator _animator;
-    private Transform _cameraTransform;
-    
-    // --- Helper Variables ---
-    private Vector3 _velocity;           
-    private float _turnSmoothVelocity;   
-
-    #endregion
-
-    #region Unity Methods
+    private Vector3 velocity;
+    private bool isGrounded;
+    private float turnSmoothVelocity;
 
     private void Awake()
     {
-        _characterController = GetComponent<CharacterController>();
-        _animator = GetComponent<Animator>();
-        _cameraTransform = Camera.main.transform;
+        controller = GetComponent<CharacterController>();
+        combatScript = GetComponent<PlayerCombat>();
+        animator = GetComponent<Animator>();
+
+        // Kamerayı otomatik bul
+        if (refs.cameraTransform == null && Camera.main != null)
+            refs.cameraTransform = Camera.main.transform;
     }
 
     private void Update()
     {
+        // 1. ÖLÜM VE STUN KONTROLÜ
+        // Eğer karakter ölü ya da stun yemişse (Busy) hareket edemez.
+        if (combatScript != null && (combatScript.status.isDead || combatScript.status.isBusy))
+        {
+            // Havada donup kalmasın diye yer çekimi işlemeye devam etsin
+            ApplyGravity();
+            return;
+        }
+
         HandleMovement();
         ApplyGravity();
     }
 
-    #endregion
-
-    #region Custom Methods
-
     private void HandleMovement()
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-        
-        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
-
-        if (inputDirection.magnitude >= 0.1f)
+        // Yere basıyor muyuz?
+        isGrounded = Physics.CheckSphere(refs.groundCheck.position, refs.groundDistance, refs.groundMask);
+        if (isGrounded && velocity.y < 0)
         {
-            // --- YÖN VE DÖNÜŞ (Kameraya Göre) ---
-            float targetAngle = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg + _cameraTransform.eulerAngles.y;
-            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref _turnSmoothVelocity, turnSmoothTime);
+            velocity.y = -2f; // Yere yapışık kalması için küçük bir kuvvet
+        }
+
+        // Klavye Girdileri
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
+        Vector3 direction = new Vector3(x, 0f, z).normalized;
+
+        // Hareket varsa
+        if (direction.magnitude >= 0.1f)
+        {
+            // Kameranın baktığı yöne göre hareket açısını hesapla
+            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + refs.cameraTransform.eulerAngles.y;
+            
+            // Karakteri o yöne yumuşakça döndür
+            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, moveSettings.turnSmoothTime);
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
+            // Hareket yönü
             Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-
-            // --- HIZ VE ANİMASYON AYARI ---
-            bool isRunning = Input.GetKey(KeyCode.LeftShift);
-
-            // 1. Fiziksel Hız (Slider ile ayarladığın gerçek hızlar)
-            float currentMoveSpeed = isRunning ? runSpeed : walkSpeed;
-
-            // 2. Animasyon Değeri (Animatöre giden sabit değerler: 0.5 veya 1)
-            float animationValue = isRunning ? 1f : 0.5f;
-
-            // Hareketi uygula
-            _characterController.Move(moveDir.normalized * currentMoveSpeed * Time.deltaTime);
             
-            // Animasyonu uygula
-            _animator.SetFloat("Speed", animationValue, animDampTime, Time.deltaTime);
+            // Koşma kontrolü (Shift)
+            float speed = Input.GetKey(KeyCode.LeftShift) ? moveSettings.runSpeed : moveSettings.walkSpeed;
+            
+            // Savaş Modunda mecburi yürüme (Opsiyonel: İstersen kaldırabilirsin)
+            if (combatScript.combat.isInCombatMode) speed = moveSettings.walkSpeed;
+
+            controller.Move(moveDir.normalized * speed * Time.deltaTime);
+            
+            // Animasyon Hızı
+            // Blend Tree için Speed parametresi (0 = Dur, 1 = Yürü, 2+ = Koş)
+            float animSpeed = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
+            animator.SetFloat("Speed", animSpeed, 0.1f, Time.deltaTime);
         }
         else
         {
-            // Durma animasyonu
-            _animator.SetFloat("Speed", 0f, animDampTime, Time.deltaTime);
+            // Hareket yoksa animasyon hızı 0
+            animator.SetFloat("Speed", 0, 0.1f, Time.deltaTime);
+        }
+
+        // Zıplama
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            velocity.y = Mathf.Sqrt(moveSettings.jumpHeight * -2f * moveSettings.gravity);
+            animator.SetTrigger("Jump");
         }
     }
 
     private void ApplyGravity()
     {
-        if (_characterController.isGrounded && _velocity.y < 0)
-        {
-            _velocity.y = -2f; 
-        }
-
-        _velocity.y += gravity * Time.deltaTime;
-        _characterController.Move(_velocity * Time.deltaTime);
+        velocity.y += moveSettings.gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
     }
-
-    #endregion
 }
