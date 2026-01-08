@@ -118,12 +118,14 @@ public class EnemyAI : MonoBehaviour
             if(animator) animator.SetFloat("Speed", 0);
         }
 
-        if(agent && !isBlocking) animator.SetFloat("Speed", agent.velocity.magnitude);
+        if(agent != null && agent.isActiveAndEnabled && !isBlocking)
+            animator.SetFloat("Speed", agent.velocity.magnitude);
         else animator.SetFloat("Speed", 0); 
     }
 
     private void ChasePlayer()
     {
+        if (!agent.isActiveAndEnabled || !agent.isOnNavMesh) return;
         agent.isStopped = false;
         agent.SetDestination(player.position);
     }

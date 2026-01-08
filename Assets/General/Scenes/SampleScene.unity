@@ -646,33 +646,39 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc6c4aaa5768f40408e918bcb6d46184, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
-  isInCombatMode: 0
-  lockOnRange: 8
-  rotationSpeed: 8
-  currentDirection: 1
-  mouseThreshold: 0.1
-  parryStunDuration: 2
-  parrySuccessSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
-  attackCooldown: 0.8
-  attackLungeForce: 2
-  lungeDuration: 0.2
-  basicAttackDamage: 10
-  basicStunDuration: 0.3
-  maxHealth: 100
-  isDead: 0
-  isBusy: 0
-  attackPoint: {fileID: 594195401}
-  attackRange: 1.5
-  enemyLayers:
-    serializedVersion: 2
-    m_Bits: 64
-  audioSource: {fileID: 428562016}
-  swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-  hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
-  hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
-  cameraTransform: {fileID: 330585546}
-  shakeDuration: 0.05
-  shakeMagnitude: 0.09
+  combat:
+    isInCombatMode: 0
+    lockOnRange: 10
+    rotationSpeed: 10
+  direction:
+    currentDirection: 2
+    mouseThreshold: 0.1
+  parry:
+    stunDuration: 2
+    successSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  attack:
+    cooldown: 0.6
+    lungeForce: 4
+    lungeDuration: 0.2
+    damage: 10
+    hitStunDuration: 0.5
+  status:
+    maxHealth: 100
+    isDead: 0
+    isBusy: 0
+  refs:
+    attackPoint: {fileID: 594195401}
+    attackRange: 1
+    enemyLayers:
+      serializedVersion: 2
+      m_Bits: 64
+    hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    cameraTransform: {fileID: 330585546}
+    audioSource: {fileID: 428562016}
+    swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+    hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
+    shakeDuration: 0.2
+    shakeMagnitude: 0.3
   specialAttacks:
   - attackName: Kick
     inputKey: 101
@@ -1082,17 +1088,17 @@ PrefabInstance:
       addedObject: {fileID: 594195401}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 428562011}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 428562015}
+      insertIndex: 1
+      addedObject: {fileID: 428562016}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 428562010}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 428562016}
+      addedObject: {fileID: 428562011}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 428562015}
   m_SourcePrefab: {fileID: 100100000, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
 --- !u!1001 &1606299042
 PrefabInstance:
@@ -1677,26 +1683,33 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 84e857e2070aee945b207a9d40d59e38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
-  damage: 5
-  specialAttackChance: 0.2
-  kickDamage: 5
-  kickStunDuration: 1.5
-  kickKnockback: 6
-  shieldDamage: 8
-  shieldStunDuration: 1
-  shieldKnockback: 3
-  parryStunDuration: 2
-  parrySuccessSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
-  defenseFrequency: 0.5
-  maxHealth: 100
-  isDead: 0
-  attackRange: 1.5
-  detectionRange: 6
-  attackCooldown: 0.75
-  hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
-  audioSource: {fileID: 2130248825}
-  hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
-  swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+  stats:
+    damage: 10
+    defenseFrequency: 0.6
+  special:
+    chance: 0.3
+    kickDamage: 5
+    kickStun: 1.5
+    kickKnockback: 6
+    shieldDamage: 8
+    shieldStun: 1
+    shieldKnockback: 3
+  parry:
+    stunDuration: 2
+    successSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  health:
+    maxHealth: 100
+    isDead: 0
+    isStunned: 0
+  ai:
+    attackRange: 1.5
+    detectionRange: 10
+    attackCooldown: 2
+  refs:
+    hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    audioSource: {fileID: 2130248825}
+    hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
+    swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
 --- !u!195 &2130248833
 NavMeshAgent:
   m_ObjectHideFlags: 0
