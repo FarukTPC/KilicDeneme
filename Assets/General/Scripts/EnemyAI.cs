@@ -60,21 +60,27 @@ public class EnemyAI : MonoBehaviour
         [Header("MESAFELER")]
         [Tooltip("Saldırıya geçme mesafesi.")]
         public float saldiriMenzili = 1.5f;
-        [Tooltip("Oyuncuyu ilk fark etme mesafesi.")]
+        
+        [Tooltip("Oyuncuyu görüp kovalamaya başlama mesafesi.")]
         public float farkEtmeMenzili = 10f;
-        [Tooltip("Kovalamayı bırakıp vazgeçme mesafesi (Fark etme menzilinden büyük olmalı).")]
+        
+        [Tooltip("Oyuncuyu kovalamayı bırakıp devriyeye dönme mesafesi.")]
         public float vazgecmeMenzili = 20f; 
+
         public float saldiriBeklemeSuresi = 2.0f;
 
         [Header("HIZ AYARLARI")]
         public float kovalamaHizi = 4.0f;
         public float savasYuruyusHizi = 2.0f;
         public float devriyeHizi = 1.5f;
+        
+        [Tooltip("Animasyon geçişlerinin ne kadar yumuşak olacağı (0.1 = Hızlı, 0.3 = Ağır).")]
+        public float animasyonYumusatma = 0.15f; // --- YENİ EKLENEN AYAR ---
 
         [Header("TAKTİKSEL BEKLEME")]
         [Range(0f, 1f)] public float taktikselBeklemeIhtimali = 0.4f;
         public float taktikselBeklemeSuresi = 2.0f;
-        [Tooltip("Taktiksel bekleme sırasında oyuncu yaklaşırsa Parry atma şansı.")]
+        [Tooltip("Bekleme anında oyuncu yaklaşırsa Parry açma şansı.")]
         [Range(0f, 1f)] public float taktikselParrySansi = 0.5f;
 
         [Header("DEVRİYE")]
@@ -118,7 +124,6 @@ public class EnemyAI : MonoBehaviour
     private bool zaferKutlamasiYaptiMi = false;
     private bool taktikselBeklemeAktif = false;
     
-    // YENİ: Düşman oyuncuyu şu an aktif olarak takip ediyor mu?
     private bool oyuncuyuGordu = false;
 
     private SaldiriYonu mevcutYon = SaldiriYonu.Sag;
@@ -154,16 +159,20 @@ public class EnemyAI : MonoBehaviour
 
     private void Update()
     {
-        // 1. ÖLÜM VE STUN KİLİDİ (KESİN ÇÖZÜM)
+        // 1. ÖLÜM VE STUN KİLİDİ
         if (saglik.olduMu || saglik.sersemlediMi) 
         {
             if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             {
                 ajan.isStopped = true;
-                ajan.velocity = Vector3.zero; // Kaymayı önle
-                ajan.ResetPath(); // Hedefi tamamen unuttur
+                ajan.velocity = Vector3.zero; 
+                ajan.ResetPath();
             }
-            // Bu durumda aşağıdaki hiçbir kod çalışmasın!
+            
+            // Stun anında animasyonu da yavaşça durdur (Sert kesilmesin)
+            if(animator) 
+                animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
+            
             return; 
         }
 
@@ -184,10 +193,8 @@ public class EnemyAI : MonoBehaviour
         // 3. MESAFE VE GÖRÜŞ MANTIĞI
         float mesafe = oyuncu ? Vector3.Distance(transform.position, oyuncu.position) : 999f;
 
-        // Görüş Durumunu Güncelle
         if (!oyuncuyuGordu)
         {
-            // Henüz görmediysem, fark etme menziline girmesini bekle
             if (mesafe <= yapayZeka.farkEtmeMenzili)
             {
                 oyuncuyuGordu = true;
@@ -195,47 +202,43 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // Zaten gördüysem, vazgeçme menzilinden çıkana kadar kovala
             if (mesafe > yapayZeka.vazgecmeMenzili)
             {
                 oyuncuyuGordu = false;
-                taktikselBeklemeAktif = false; // Taktiksel beklemeyi de sıfırla
+                taktikselBeklemeAktif = false; 
             }
         }
 
         // 4. AKSİYON KARARLARI
         if (oyuncuyuGordu)
         {
-            // --- SAVAŞ VEYA KOVALAMA MODU ---
-            
             // Taktiksel Bekleme Kontrolü
             if (taktikselBeklemeAktif)
             {
-                // Eğer oyuncu dibimize girdiyse (Attack Range'in %30'u kadar) tuzağı tetikle
                 if (mesafe <= yapayZeka.saldiriMenzili * 0.3f)
                 {
                     TaktikselBeklemeIptalVeTuzak();
                 }
                 else
                 {
-                    // Uzaktaysa izlemeye devam et, hareket etme
                     if(ajan.isActiveAndEnabled) ajan.isStopped = true;
                     OyuncuyaDon();
-                    if(animator) animator.SetFloat("Hiz", 0);
+                    // Beklerken animasyonu yumuşakça durdur
+                    if(animator) animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
                     return;
                 }
             }
 
-            // Normal Savaş/Kovalama Davranışı
+            // Normal Davranış
             if (mesafe <= yapayZeka.saldiriMenzili)
             {
-                // Saldırı mesafesindeyiz -> Savaş
+                // Savaş Modu
                 if(ajan.isActiveAndEnabled) ajan.speed = yapayZeka.savasYuruyusHizi;
                 SavasMantigi();
             }
             else
             {
-                // Saldırı mesafesinde değiliz ama görüyoruz -> Kovala
+                // Kovalama Modu
                 BlokuBirak();
                 if(ajan.isActiveAndEnabled) ajan.speed = yapayZeka.kovalamaHizi;
                 Kovala();
@@ -243,17 +246,21 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // --- OYUNCUYU GÖRMÜYORUZ -> DEVRİYE MODU ---
+            // Devriye Modu
             BlokuBirak();
             if(ajan.isActiveAndEnabled) ajan.speed = yapayZeka.devriyeHizi;
             DevriyeGez();
         }
 
-        // Animasyon hızı güncellemesi
+        // --- ANIMASYON GÜNCELLEMESİ (YENİ) ---
+        float hedefHiz = 0f;
         if(ajan && !blokluyorMu) 
-            animator.SetFloat("Hiz", ajan.velocity.magnitude);
-        else 
-            animator.SetFloat("Hiz", 0); 
+        {
+            hedefHiz = ajan.velocity.magnitude;
+        }
+        
+        // Burada senin belirlediğin 'animasyonYumusatma' değerini kullanıyoruz
+        animator.SetFloat("Hiz", hedefHiz, yapayZeka.animasyonYumusatma, Time.deltaTime);
     }
 
     private void TaktikselBeklemeIptalVeTuzak()
@@ -261,7 +268,7 @@ public class EnemyAI : MonoBehaviour
         taktikselBeklemeAktif = false;
         StopCoroutine("TaktikselBeklemeSureci");
         
-        OyuncuyaDon(); // Harekete geçmeden oyuncuya dön
+        OyuncuyaDon(); 
 
         float zar = Random.value;
         if (zar < yapayZeka.taktikselParrySansi)
@@ -546,7 +553,6 @@ public class EnemyAI : MonoBehaviour
         
         animator.SetTrigger("Sersemleme");
         
-        // Stun anında ajanı durdur ve hedefini sil
         if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
         {
             ajan.isStopped = true;
@@ -556,7 +562,6 @@ public class EnemyAI : MonoBehaviour
         
         yield return new WaitForSeconds(sure);
         
-        // Stun bitince tekrar aç
         if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             ajan.isStopped = false;
             
