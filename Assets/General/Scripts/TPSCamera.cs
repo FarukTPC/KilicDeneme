@@ -2,173 +2,184 @@ using UnityEngine;
 
 public class TPSCamera : MonoBehaviour
 {
-    [Header("Target & Mode")]
-    public Transform target;
-    public Vector3 lookAtOffSet = new Vector3(0.6f, 1.4f, 0); // Sağ omuz ayarı
+    [Header("--- TAKİP VE HEDEF ---")]
+    [Tooltip("Takip edilecek karakter (Player).")]
+    public Transform hedef;
 
-    [Header("Combat Settings")]
-    public PlayerCombat playerCombat;
-    public float lockOnSmoothSpeed = 10f; 
+    [Header("--- KONUM AYARLARI (BANNERLORD TARZI) ---")]
+    [Tooltip("Kameranın karakterin ne kadar yukarısına bakacağı (Kafa hizası). Örn: 1.5")]
+    public float yukseklikPayi = 1.4f;
+    [Tooltip("Kameranın sağa/sola kayması (Sağ omuz için pozitif değer). Örn: 0.5")]
+    public float omuzPayi = 0.5f;
+    [Tooltip("Kameranın karakterden uzaklığı.")]
+    public float varsayilanMesafe = 3.0f;
 
-    [Header("Sensitivity & Smoothing")]
-    public float mouseSensitivityX = 180f;
-    public float mouseSensitivityY = 150f;
-    [Range(0.01f, 0.5f)] public float rotationSmoothTime = 0.05f;
-    [Range(0.01f, 0.5f)] public float moveSmoothTime = 0.1f;
+    [Header("--- HASSASİYET VE YUMUŞATMA ---")]
+    [Tooltip("Fare çevirme hızı.")]
+    public float fareHassasiyeti = 3.0f;
+    [Tooltip("Kamera dönüş yumuşaklığı (Daha düşük = Daha hızlı). Örn: 0.1")]
+    public float donusYumusakligi = 0.1f;
+    [Tooltip("Kamera takip yumuşaklığı (Titremeyi önler). Örn: 0.2")]
+    public float takipYumusakligi = 0.2f;
 
-    [Header("Distance & Collision")]
-    public float normalDistance = 2.5f;
-    public float combatDistance = 3.5f;
-    public float minDistance = 1.0f;
-    public float maxDistance = 5.0f;
-    public LayerMask collisionLayers; // PLAYER ve ENEMY seçili OLMASIN!
+    [Header("--- SINIRLAR VE ENGEL ---")]
+    [Tooltip("Aşağı bakma limiti.")]
+    public float minDikeyAci = -30f;
+    [Tooltip("Yukarı bakma limiti.")]
+    public float maksDikeyAci = 70f;
+    [Tooltip("Kameranın çarpacağı katmanlar (Player ve Enemy SEÇİLİ OLMAMALI!).")]
+    public LayerMask engelKatmani;
+    [Tooltip("Kamera duvara çarpınca ne kadar yakına gelebilir?")]
+    public float minKameraMesafesi = 0.5f;
 
-    [Header("Limits")]
-    public float minVerticalAngle = -20f;
-    public float maxVerticalAngle = 60f;
+    // --- SAVAŞ SİSTEMİ BAĞLANTISI ---
+    [Header("--- SAVAŞ MODU ---")]
+    public PlayerCombat oyuncuSavasScripti;
+    [Tooltip("Savaş modunda kamera biraz daha uzaklaşsın mı?")]
+    public float savasMesafesiEk = 1.0f;
+    [Tooltip("Lock-On yapınca dönüş hızı.")]
+    public float kilitlenmeHizi = 15f;
 
     // --- GİZLİ DEĞİŞKENLER ---
-    private float mouseX, mouseY;
-    private float currentX, currentY;
-    private float xVelocity, yVelocity;
-    private Vector3 currentVelocity;
-    private float finalDistance;
+    private float hedefX = 0f;
+    private float hedefY = 0f;
+    private float suankiX = 0f;
+    private float suankiY = 0f;
+    private float xHizi = 0f; // SmoothDamp için ref
+    private float yHizi = 0f; // SmoothDamp için ref
+    
+    private Vector3 suankiTakipHizi; // Pozisyon takibi için ref
+    private Vector3 hedefPozisyonu;  // Kameranın gitmek istediği yer
+    private float guncelMesafe;      // O anki zoom seviyesi
 
-    // --- SHAKE SİSTEMİ ---
-    private float shakeTimer = 0f;
-    private float shakeMagnitude = 0f;
-    private Vector3 shakeOffset = Vector3.zero;
+    // Sarsıntı
+    private float sarsintiSuresi = 0f;
+    private float sarsintiGucu = 0f;
+    private Vector3 sarsintiVektoru;
 
     private void Start()
     {
+        // Fareyi gizle ve kilitle
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        currentX = NormalizeAngle(transform.eulerAngles.y);
-        currentY = NormalizeAngle(transform.eulerAngles.x);
-        mouseX = currentX;
-        mouseY = currentY;
+        // Başlangıç açılarını ayarla
+        Vector3 acilar = transform.eulerAngles;
+        hedefX = acilar.y;
+        hedefY = acilar.x;
+        
+        suankiX = hedefX;
+        suankiY = hedefY;
 
-        if (!playerCombat && target) playerCombat = target.GetComponent<PlayerCombat>();
-        finalDistance = normalDistance;
+        guncelMesafe = varsayilanMesafe;
+
+        // Otomatik bul
+        if (oyuncuSavasScripti == null && hedef != null)
+            oyuncuSavasScripti = hedef.GetComponent<PlayerCombat>();
     }
 
     private void LateUpdate()
     {
-        if (!target) return;
+        if (!hedef) return;
 
-        HandleInput();
-        UpdateShake(); // Sarsıntıyı hesapla
-        MoveAndRotate();
+        GirdileriYonet();
+        SarsintiyiHesapla();
+        KamerayiHareketEttir();
     }
 
-    // DIŞARIDAN ÇAĞRILACAK FONKSİYON
-    public void ShakeCamera(float duration, float magnitude)
+    private void GirdileriYonet()
     {
-        shakeTimer = duration;
-        shakeMagnitude = magnitude;
-    }
-
-    private void UpdateShake()
-    {
-        if (shakeTimer > 0)
+        // 1. SAVAŞ MODU VE LOCK-ON
+        if (oyuncuSavasScripti != null && oyuncuSavasScripti.savas.savasModunda && oyuncuSavasScripti.mevcutHedef != null)
         {
-            // Rastgele bir nokta belirle (Titreşim)
-            shakeOffset = Random.insideUnitSphere * shakeMagnitude;
-            shakeTimer -= Time.deltaTime;
-        }
-        else
-        {
-            shakeOffset = Vector3.zero;
-        }
-    }
-
-    private void HandleInput()
-    {
-        if (playerCombat != null && playerCombat.combat.isInCombatMode && playerCombat.currentTarget != null)
-        {
-            // LOCK-ON
-            Vector3 dirToEnemy = playerCombat.currentTarget.position - target.position;
-            if(dirToEnemy != Vector3.zero)
+            // Düşmana kilitlen
+            Vector3 dusmanaYon = oyuncuSavasScripti.mevcutHedef.position - hedef.position;
+            if (dusmanaYon != Vector3.zero)
             {
-                Quaternion lookRot = Quaternion.LookRotation(dirToEnemy);
-                Vector3 targetEuler = lookRot.eulerAngles;
-
-                float targetPitch = targetEuler.x;
-                if (targetPitch > 180) targetPitch -= 360;
-                targetPitch = Mathf.Clamp(targetPitch, minVerticalAngle, maxVerticalAngle);
-
-                mouseX = Mathf.LerpAngle(mouseX, targetEuler.y, Time.deltaTime * lockOnSmoothSpeed);
-                mouseY = Mathf.Lerp(mouseY, targetPitch, Time.deltaTime * lockOnSmoothSpeed);
+                Quaternion bakis = Quaternion.LookRotation(dusmanaYon);
+                // X ekseni (yukarı/aşağı) yine farenin kontrolünde olsun ama Y (sağ/sol) düşmana dönsün
+                hedefX = Mathf.LerpAngle(hedefX, bakis.eulerAngles.y, Time.deltaTime * kilitlenmeHizi);
+                
+                // İstersen Y eksenini (Yukarı/Aşağı) da kilitleyebilirsin ama oyuncuya bırakmak daha rahattır.
+                // fareY girdisini hala alıyoruz:
+                hedefY -= Input.GetAxis("Mouse Y") * fareHassasiyeti;
             }
         }
         else
         {
-            // NORMAL
-            mouseX += Input.GetAxis("Mouse X") * mouseSensitivityX * Time.deltaTime;
-            mouseY -= Input.GetAxis("Mouse Y") * mouseSensitivityY * Time.deltaTime;
-            mouseY = Mathf.Clamp(mouseY, minVerticalAngle, maxVerticalAngle);
+            // 2. NORMAL MOD (Serbest Kamera)
+            hedefX += Input.GetAxis("Mouse X") * fareHassasiyeti;
+            hedefY -= Input.GetAxis("Mouse Y") * fareHassasiyeti;
         }
 
-        currentX = Mathf.SmoothDampAngle(currentX, mouseX, ref xVelocity, rotationSmoothTime);
-        currentY = Mathf.SmoothDamp(currentY, mouseY, ref yVelocity, rotationSmoothTime);
+        // Açıları sınırla
+        hedefY = Mathf.Clamp(hedefY, minDikeyAci, maksDikeyAci);
+
+        // Yumuşatma (SmoothDamp - En kaliteli geçiş yöntemidir)
+        suankiX = Mathf.SmoothDamp(suankiX, hedefX, ref xHizi, donusYumusakligi);
+        suankiY = Mathf.SmoothDamp(suankiY, hedefY, ref yHizi, donusYumusakligi);
     }
 
-    private void MoveAndRotate()
+    private void KamerayiHareketEttir()
     {
-        Quaternion rotation = Quaternion.Euler(currentY, currentX, 0);
-
-        // Hedef mesafeyi belirle
-        float targetDist = (playerCombat && playerCombat.combat.isInCombatMode) ? combatDistance : normalDistance;
+        // 1. Pivot Noktasını Belirle (Karakterin kafası)
+        // Karakter hareket ettiğinde kamera anında değil, çok hafif bir gecikmeyle (damping) takip etsin
+        Vector3 karakterKafaNoktasi = hedef.position + Vector3.up * yukseklikPayi;
         
-        // Hedef pozisyon (Omuz offsetli)
-        Vector3 targetPos = target.position + lookAtOffSet;
-        Vector3 dir = rotation * -Vector3.forward;
+        // 2. Rotasyonu Hesapla
+        Quaternion rotasyon = Quaternion.Euler(suankiY, suankiX, 0);
 
-        // 1. DUVAR KONTROLÜ (Raycast)
+        // 3. Hedef Mesafeyi Belirle (Savaşta uzaklaş)
+        float istenenMesafe = varsayilanMesafe;
+        if (oyuncuSavasScripti && oyuncuSavasScripti.savas.savasModunda)
+            istenenMesafe += savasMesafesiEk;
+
+        // 4. Duvar Kontrolü (Raycast / SphereCast)
+        // Kameradan karaktere değil, karakterden kameraya doğru ışın atıyoruz
+        // Omuz payını da hesaba katarak yön belirliyoruz
+        Vector3 kameraYonu = rotasyon * Vector3.back; // Arkaya doğru
+        Vector3 omuzVektoru = rotasyon * Vector3.right * omuzPayi; // Sağa doğru
+        
+        Vector3 finalHedefNoktasi = karakterKafaNoktasi + omuzVektoru + (kameraYonu * istenenMesafe);
+        Vector3 rayBaslangic = karakterKafaNoktasi + omuzVektoru; // Kafa hizasından omuz hizasına kaymış nokta
+        
         RaycastHit hit;
-        if (Physics.SphereCast(targetPos, 0.2f, dir, out hit, targetDist, collisionLayers))
+        Vector3 sonucPozisyon;
+
+        // Kafadan kameranın olacağı yere ışın at, duvara çarparsa oraya koy
+        if (Physics.SphereCast(rayBaslangic, 0.2f, (finalHedefNoktasi - rayBaslangic).normalized, out hit, istenenMesafe, engelKatmani))
         {
-            finalDistance = Mathf.Clamp(hit.distance - 0.2f, minDistance, targetDist);
+            guncelMesafe = Mathf.Clamp(hit.distance, minKameraMesafesi, istenenMesafe);
+            sonucPozisyon = rayBaslangic + ((finalHedefNoktasi - rayBaslangic).normalized * guncelMesafe);
         }
         else
         {
-            finalDistance = Mathf.Lerp(finalDistance, targetDist, Time.deltaTime * 20f); // Hızı artırdık (10->20)
+            sonucPozisyon = finalHedefNoktasi;
         }
 
-        Vector3 negDistance = new Vector3(0.0f, 0.0f, -finalDistance);
-        
-        // Hesaplanan ham pozisyon (Sarsıntı dahil)
-        Vector3 calculatedPos = rotation * negDistance + targetPos + shakeOffset;
-
-        // 2. KİŞİSEL ALAN KORUMASI (Anti-Clipping Sphere)
-        // Karakterin kendisine (Target.position) olan mesafeyi ölçüyoruz.
-        // LookAtOffset'e değil, direkt karakterin merkezine olan mesafe önemli.
-        Vector3 directionFromChar = calculatedPos - target.position;
-        float distFromChar = directionFromChar.magnitude;
-
-        // Eğer kamera karakterin merkezine "MinDistance"dan daha yakınsa:
-        if (distFromChar < minDistance)
-        {
-            // Kamerayı karakterden uzağa, "MinDistance" sınırına kadar ittir.
-            calculatedPos = target.position + (directionFromChar.normalized * minDistance);
-            
-            // Ani girişlerde titremeyi önlemek için hızı sıfırla
-            currentVelocity = Vector3.zero; 
-            transform.position = calculatedPos; // Direkt ata (Smooth yapma)
-        }
-        else
-        {
-            // Mesafe güvenliyse normal yumuşak takip yap
-            transform.position = Vector3.SmoothDamp(transform.position, calculatedPos, ref currentVelocity, moveSmoothTime);
-        }
-
-        transform.rotation = rotation;
+        // 5. Pozisyonu Uygula (Sarsıntı Dahil)
+        transform.rotation = rotasyon;
+        transform.position = Vector3.SmoothDamp(transform.position, sonucPozisyon + sarsintiVektoru, ref suankiTakipHizi, takipYumusakligi);
     }
-    private float NormalizeAngle(float angle)
+
+    // --- YARDIMCILAR ---
+    
+    public void KamerayiSalla(float sure, float guc)
     {
-        angle %= 360;
-        if (angle > 180) return angle - 360;
-        return angle;
+        sarsintiSuresi = sure;
+        sarsintiGucu = guc;
+    }
+
+    private void SarsintiyiHesapla()
+    {
+        if (sarsintiSuresi > 0)
+        {
+            sarsintiVektoru = Random.insideUnitSphere * sarsintiGucu;
+            sarsintiSuresi -= Time.deltaTime;
+        }
+        else
+        {
+            sarsintiVektoru = Vector3.zero;
+        }
     }
 }

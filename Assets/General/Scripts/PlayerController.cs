@@ -3,156 +3,145 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    // --- KATLANABİLİR AYAR GRUPLARI ---
-
     [System.Serializable]
-    public class MovementSettings
+    public class HareketAyarlari
     {
-        [Tooltip("Yürüme hızı.")]
-        public float walkSpeed = 2.0f;
-        [Tooltip("Koşma hızı (Shift ile).")]
-        public float runSpeed = 5.0f;
-        [Tooltip("Karakterin dönme yumuşaklığı.")]
-        public float turnSmoothTime = 0.1f;
-        [Tooltip("Zıplama yüksekliği.")]
-        public float jumpHeight = 1.0f;
-        [Tooltip("Yer çekimi kuvveti (Negatif olmalı).")]
-        public float gravity = -9.81f;
+        [Tooltip("Normal yürüme hızı.")]
+        public float yurumeHizi = 2.0f;
+        [Tooltip("Shift tuşuna basınca ulaşılan koşma hızı.")]
+        public float kosmaHizi = 5.0f;
+        [Tooltip("Karakterin dönme yumuşaklığı (Düşük = Hızlı döner).")]
+        public float donusYumusakligi = 0.1f;
+        [Tooltip("Karakterin zıplama yüksekliği.")]
+        public float ziplamaGucu = 1.0f;
+        [Tooltip("Yer çekimi kuvveti (Negatif olmalı, örn: -9.81).")]
+        public float yerCekimi = -9.81f;
     }
 
     [System.Serializable]
-    public class ReferenceSettings
+    public class Referanslar
     {
-        [Tooltip("Ana Kamera Transformu (Otomatik bulunur).")]
-        public Transform cameraTransform;
-        [Tooltip("Zemin kontrolü için ayakların altındaki boş obje.")]
-        public Transform groundCheck;
-        [Tooltip("Zemin algılama yarıçapı.")]
-        public float groundDistance = 0.4f;
-        [Tooltip("Zemin katmanı.")]
-        public LayerMask groundMask;
+        [Tooltip("Ana kamera transformu (Otomatik bulunur).")]
+        public Transform kameraTransform;
+        [Tooltip("Karakterin ayaklarının altındaki 'GroundCheck' objesi.")]
+        public Transform zeminKontrol;
+        [Tooltip("Zemini algılama yarıçapı.")]
+        public float zeminMesafe = 0.4f;
+        [Tooltip("Hangi katmanlar zemin (yer) olarak kabul edilecek?")]
+        public LayerMask zeminKatmani;
     }
 
-    // --- ANA DEĞİŞKENLER ---
+    [Header("HAREKET AYARLARI")]
+    public HareketAyarlari hareket;
     
-    public MovementSettings moveSettings;
-    public ReferenceSettings refs;
+    [Header("REFERANSLAR")]
+    public Referanslar referans;
 
-    // --- GİZLİ DEĞİŞKENLER ---
-    
-    private CharacterController controller;
-    private PlayerCombat combatScript;
+    private CharacterController kontrolcu;
+    private PlayerCombat savasScripti;
     private Animator animator;
 
-    private Vector3 velocity;
-    private bool isGrounded;
-    private float turnSmoothVelocity;
+    private Vector3 hizVektoru;
+    private bool yerdeMi;
+    private float donusHiziRef;
 
     private void Awake()
     {
-        controller = GetComponent<CharacterController>();
-        combatScript = GetComponent<PlayerCombat>();
+        kontrolcu = GetComponent<CharacterController>();
+        savasScripti = GetComponent<PlayerCombat>(); // Otomatik bul
         animator = GetComponent<Animator>();
 
-        // Kamerayı otomatik bul
-        if (refs.cameraTransform == null && Camera.main != null)
-            refs.cameraTransform = Camera.main.transform;
+        if (referans.kameraTransform == null && Camera.main != null)
+            referans.kameraTransform = Camera.main.transform;
     }
 
     private void Update()
     {
-        // 1. ÖLÜM VE STUN KONTROLÜ
-        if (combatScript != null && (combatScript.status.isDead || combatScript.status.isBusy))
+        // --- STUN VE ÖLÜM KİLİDİ (KESİN ÇÖZÜM) ---
+        // Eğer savaş scripti varsa ve karakter ölü ya da meşgulse (stunluysa)
+        if (savasScripti != null && (savasScripti.durum.olduMu || savasScripti.durum.mesgulMu))
         {
-            ApplyGravity();
-            return;
+            // Sadece yer çekimini uygula, ASLA yürüme
+            YerCekimiUygula();
+            
+            // Animasyon hızını zorla sıfırla ki koşuyor gibi görünmesin
+            animator.SetFloat("Hiz", 0f);
+            return; 
         }
+        // ------------------------------------------
 
-        HandleMovement();
-        ApplyGravity();
+        HareketEt();
+        YerCekimiUygula();
     }
 
-    private void HandleMovement()
+    private void HareketEt()
     {
-        // Zemin Kontrolü
-        if(refs.groundCheck) // Hata vermesin diye null check
-            isGrounded = Physics.CheckSphere(refs.groundCheck.position, refs.groundDistance, refs.groundMask);
+        if(referans.zeminKontrol)
+            yerdeMi = Physics.CheckSphere(referans.zeminKontrol.position, referans.zeminMesafe, referans.zeminKatmani);
         
-        if (isGrounded && velocity.y < 0)
+        if (yerdeMi && hizVektoru.y < 0)
         {
-            velocity.y = -2f; 
+            hizVektoru.y = -2f; 
         }
 
-        // Girdiler
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
-        Vector3 inputDir = new Vector3(x, 0f, z).normalized;
+        Vector3 girisYonu = new Vector3(x, 0f, z).normalized;
 
-        // --- HAREKET MANTIĞI ---
-
-        // DURUM A: SAVAŞ MODUNDAYIZ VE HEDEF VAR (LOCK-ON MOVEMENT)
-        if (combatScript.combat.isInCombatMode && combatScript.currentTarget != null)
+        // 1. SAVAS MODU (LOCK-ON YAN YURUME)
+        if (savasScripti.savas.savasModunda && savasScripti.mevcutHedef != null)
         {
-            // 1. Karakteri Düşmana Döndür (Gövdeyi Kilitle)
-            Vector3 dirToEnemy = (combatScript.currentTarget.position - transform.position).normalized;
-            dirToEnemy.y = 0; // Karakter yukarı/aşağı bakmasın, sadece sağ/sol
+            Vector3 dusmanaYon = (savasScripti.mevcutHedef.position - transform.position).normalized;
+            dusmanaYon.y = 0; 
             
-            if (dirToEnemy != Vector3.zero)
+            if (dusmanaYon != Vector3.zero)
             {
-                Quaternion lookRot = Quaternion.LookRotation(dirToEnemy);
-                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 10f);
+                Quaternion bakis = Quaternion.LookRotation(dusmanaYon);
+                transform.rotation = Quaternion.Slerp(transform.rotation, bakis, Time.deltaTime * 10f);
             }
 
-            // 2. Yönlü Hareket (Strafe) - Düşmana kilitliyken yan yan yürüme
-            // Transform.right = Karakterin sağı, Transform.forward = Karakterin önü
-            Vector3 moveDir = (transform.right * x) + (transform.forward * z);
+            // Hareketi düşmana göre hesapla (İçeri çekilmeyi önleyen kod)
+            Vector3 sagYon = Vector3.Cross(Vector3.up, dusmanaYon); 
+            Vector3 hareketYonu = (sagYon * x) + (dusmanaYon * z);
             
-            // Combat'ta genelde yürüme hızı kullanılır
-            controller.Move(moveDir.normalized * moveSettings.walkSpeed * Time.deltaTime);
+            kontrolcu.Move(hareketYonu.normalized * hareket.yurumeHizi * Time.deltaTime);
 
-            // Animasyon (Eğer hareket ediyorsak Speed=1, yoksa 0)
-            // İleride buraya "Blend Tree" ile sağ/sol animasyonları eklenebilir.
-            float animSpeed = inputDir.magnitude > 0.1f ? 1f : 0f;
-            animator.SetFloat("Speed", animSpeed, 0.1f, Time.deltaTime);
+            float animHizi = girisYonu.magnitude > 0.1f ? 1f : 0f;
+            animator.SetFloat("Hiz", animHizi, 0.1f, Time.deltaTime); 
         }
-        // DURUM B: NORMAL KEŞİF MODU (FREE ROAM)
+        // 2. NORMAL MOD
         else
         {
-            if (inputDir.magnitude >= 0.1f)
+            if (girisYonu.magnitude >= 0.1f)
             {
-                // Kameranın baktığı yöne göre hesapla
-                float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + refs.cameraTransform.eulerAngles.y;
-                
-                // Karakteri gittiği yöne döndür
-                float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, moveSettings.turnSmoothTime);
-                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+                float hedefAci = Mathf.Atan2(girisYonu.x, girisYonu.z) * Mathf.Rad2Deg + referans.kameraTransform.eulerAngles.y;
+                float aci = Mathf.SmoothDampAngle(transform.eulerAngles.y, hedefAci, ref donusHiziRef, hareket.donusYumusakligi);
+                transform.rotation = Quaternion.Euler(0f, aci, 0f);
 
-                Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                Vector3 hareketYonu = Quaternion.Euler(0f, hedefAci, 0f) * Vector3.forward;
                 
-                // Shift ile koşma
-                float speed = Input.GetKey(KeyCode.LeftShift) ? moveSettings.runSpeed : moveSettings.walkSpeed;
-                controller.Move(moveDir.normalized * speed * Time.deltaTime);
+                float hiz = Input.GetKey(KeyCode.LeftShift) ? hareket.kosmaHizi : hareket.yurumeHizi;
+                kontrolcu.Move(hareketYonu.normalized * hiz * Time.deltaTime);
                 
-                float animSpeed = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
-                animator.SetFloat("Speed", animSpeed, 0.1f, Time.deltaTime);
+                float animHizi = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
+                animator.SetFloat("Hiz", animHizi, 0.1f, Time.deltaTime); 
             }
             else
             {
-                animator.SetFloat("Speed", 0, 0.1f, Time.deltaTime);
+                animator.SetFloat("Hiz", 0, 0.1f, Time.deltaTime);
             }
         }
 
-        // Zıplama
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        if (Input.GetButtonDown("Jump") && yerdeMi)
         {
-            velocity.y = Mathf.Sqrt(moveSettings.jumpHeight * -2f * moveSettings.gravity);
-            animator.SetTrigger("Jump");
+            hizVektoru.y = Mathf.Sqrt(hareket.ziplamaGucu * -2f * hareket.yerCekimi);
+            animator.SetTrigger("Ziplama"); 
         }
     }
 
-    private void ApplyGravity()
+    private void YerCekimiUygula()
     {
-        velocity.y += moveSettings.gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        hizVektoru.y += hareket.yerCekimi * Time.deltaTime;
+        kontrolcu.Move(hizVektoru * Time.deltaTime);
     }
 }
