@@ -284,48 +284,70 @@ public class PlayerCombat : MonoBehaviour
 
     public void HasarAl(int gelenHasar, Transform saldiran, int saldiriYonu, float itmeGucu, float itmeSuresi)
     {
-        if (durum.olduMu) return;
+    if (durum.olduMu) return;
 
-        if (blokluyorMu)
+    if (blokluyorMu)
+    {
+        if ((int)yon.mevcutYon == saldiriYonu && saldiriYonu != 3) 
         {
-            if ((int)yon.mevcutYon == saldiriYonu && saldiriYonu != 3) 
+            _animator.SetTrigger("SavusturmaBasarili"); 
+            if(referanslar.sesKaynagi && savusturma.basariSesi) 
             {
-                _animator.SetTrigger("SavusturmaBasarili"); 
-                if(referanslar.sesKaynagi && savusturma.basariSesi) referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
-                SarsintiTetikle();
-                
-                EnemyAI dusmanScripti = saldiran.GetComponent<EnemyAI>();
-                if(dusmanScripti) dusmanScripti.Sersemle(savusturma.sersemletmeSuresi);
-                return; 
+                referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
             }
-        }
-
-        mevcutCan -= gelenHasar;
-        
-        if(referanslar.vurusEfekti) 
-        {
-            Vector3 vurusNoktasi = transform.position + Vector3.up;
-            Vector3 kanYonu = (saldiran.position - transform.position).normalized;
-            kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
-
-            GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(-kanYonu));
-            Destroy(efekt, 2.0f);
-        }
-
-        if(referanslar.sesKaynagi && referanslar.isabetSesi) referanslar.sesKaynagi.PlayOneShot(referanslar.isabetSesi);
-        
-        SarsintiTetikle();
-        
-        if (mevcutCan <= 0)
-        {
-            Ol(saldiriYonu);
+            SarsintiTetikle();
+            
+            EnemyAI dusmanScripti = saldiran.GetComponent<EnemyAI>();
+            if(dusmanScripti) 
+            {
+                dusmanScripti.Sersemle(savusturma.sersemletmeSuresi);
+            }
             return; 
         }
-        
-        if(saldiran && itmeGucu > 0) StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
-        
-        if (!saldiriyorMu && !durum.mesgulMu) _animator.SetTrigger("Hasar"); 
     }
+
+    mevcutCan -= gelenHasar;
+    
+    // Kan Efekti
+    if(referanslar.vurusEfekti) 
+    {
+        Vector3 vurusNoktasi = transform.position + Vector3.up;
+        Vector3 kanYonu = (saldiran.position - transform.position).normalized;
+        kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
+
+        GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(-kanYonu));
+        Destroy(efekt, 2.0f);
+    }
+
+    // --- SES DÜZELTMESİ BURADA ---
+    // Sadece normal saldırılarda (kılıç) isabet sesi çal.
+    if (saldiriYonu != 3)
+    {
+        if(referanslar.sesKaynagi && referanslar.isabetSesi) 
+        {
+            referanslar.sesKaynagi.PlayOneShot(referanslar.isabetSesi);
+        }
+    }
+    // ----------------------------
+    
+    SarsintiTetikle();
+    
+    if (mevcutCan <= 0)
+    {
+        Ol(saldiriYonu);
+        return; 
+    }
+    
+    if(saldiran && itmeGucu > 0) 
+    {
+        StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
+    }
+    
+    if (!saldiriyorMu && !durum.mesgulMu) 
+    {
+        _animator.SetTrigger("Hasar"); 
+    }
+}
 
     public void SarsintiTetikle()
     {

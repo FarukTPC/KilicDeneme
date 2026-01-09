@@ -4909,7 +4909,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BloodDecalHandler
   kanIziPrefableri:
   - {fileID: 8505956342235670814, guid: c2eec206f3c2bee45994c4cd10ab423a, type: 3}
-  izBirakmaSansi: 0.005
+  - {fileID: 5776892896770488349, guid: 1053dadb47cdca54085db92738f8e1cf, type: 3}
+  - {fileID: 1438645340121659535, guid: f036131f78520664dada0f636e3bfe0d, type: 3}
+  - {fileID: 7207912436907497963, guid: 7c1a076d424bb5542b65d5ba4637ae1c, type: 3}
+  - {fileID: 5957457062634772293, guid: 81593d56bb63fbf4db71c5a1561854d8, type: 3}
+  - {fileID: 2819381652324919294, guid: 9105184b2934f2a42aaf3f6e276d45c0, type: 3}
+  - {fileID: 3485269359604058882, guid: 82a9d81e9ded36443aa68ab619a67f28, type: 3}
+  izBirakmaSansi: 0.1
   yokOlmaSuresi: 30
   zeminKatmani:
     serializedVersion: 2

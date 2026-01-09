@@ -520,61 +520,65 @@ public class EnemyAI : MonoBehaviour
         animator.SetBool("Blokluyor", false);
     }
 
-    public void HasarAl(int dmg, Transform saldiran, int saldiriYonu, float itmeGucu, float itmeSuresi)
+        public void HasarAl(int dmg, Transform saldiran, int saldiriYonu, float itmeGucu, float itmeSuresi)
     {
-        if (saglik.olduMu) return;
+    if (saglik.olduMu) return;
 
-        if (blokluyorMu && (int)mevcutYon == saldiriYonu && saldiriYonu != 3)
+    if (blokluyorMu && (int)mevcutYon == saldiriYonu && saldiriYonu != 3)
+    {
+        animator.SetTrigger("SavusturmaBasarili");
+        
+        if(referanslar.sesKaynagi && savusturma.basariSesi) 
         {
-            animator.SetTrigger("SavusturmaBasarili");
-            
-            if(referanslar.sesKaynagi && savusturma.basariSesi) 
-            {
-                referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
-            }
-                
-            PlayerCombat pc = saldiran.GetComponent<PlayerCombat>();
-            if(pc != null) 
-            {
-                pc.Sersemle(savusturma.sersemletmeSuresi);
-            }
-            return;
+            referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
         }
+            
+        PlayerCombat pc = saldiran.GetComponent<PlayerCombat>();
+        if(pc != null) 
+        {
+            pc.Sersemle(savusturma.sersemletmeSuresi);
+        }
+        return;
+    }
 
-        mevcutCan -= dmg;
-        
-        // --- ÇİFT KAN FIX: BURADAKİ KAN EFEKTİ OLUŞTURMA SATIRI SİLİNDİ ---
-        // PlayerCombat.cs zaten bizim üzerimizde kan efekti oluşturuyor.
-        
+    mevcutCan -= dmg;
+    
+    // --- SES DÜZELTMESİ BURADA ---
+    // Eğer saldırı kılıç darbesi ise (0,1,2) sesi çal.
+    // Eğer özel yetenek ise (3) standart hasar sesini ÇALMA (Sessiz olsun veya kendi sesi zaten çalıyor).
+    if(saldiriYonu != 3)
+    {
         if(referanslar.sesKaynagi && referanslar.hasarSesi) 
         {
             referanslar.sesKaynagi.PlayOneShot(referanslar.hasarSesi);
         }
-        
-        if (mevcutCan <= 0)
+    }
+    // ----------------------------
+    
+    if (mevcutCan <= 0)
+    {
+        Ol(saldiriYonu);
+    }
+    else
+    {
+        if(saldiran && itmeGucu > 0) 
         {
-            Ol(saldiriYonu);
+            StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
+        }
+
+        if (!saldiriyorMu)
+        {
+            BlokuBirak();
+            animator.SetTrigger("Hasar");
+            TaktikselBeklemeKarariVer();
         }
         else
         {
-            if(saldiran && itmeGucu > 0) 
-            {
-                StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
-            }
-
-            if (!saldiriyorMu)
-            {
-                BlokuBirak();
-                animator.SetTrigger("Hasar");
-                TaktikselBeklemeKarariVer();
-            }
-            else
-            {
-                saldiriyorMu = false; 
-                TaktikselBeklemeKarariVer();
-            }
+            saldiriyorMu = false; 
+            TaktikselBeklemeKarariVer();
         }
     }
+}
 
     private void Ol(int oldurenYon)
     {

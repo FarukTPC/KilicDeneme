@@ -8,18 +8,21 @@ public class BloodDecalHandler : MonoBehaviour
     [Tooltip("Yere yapışacak kan prefablarını buraya sürükle.")]
     public GameObject[] kanIziPrefableri; 
     
-    [Tooltip("Her damlanın yerde iz bırakma şansı (0.0 - 1.0).")]
+    [Tooltip("Her vuruşta yere iz bırakma şansı (0.005 = %0.5, 1.0 = %100).")]
     [Range(0f, 1f)] 
-    public float izBirakmaSansi = 0.5f; 
+    public float izBirakmaSansi = 0.005f; // Varsayılanı düşürdüm
     
-    [Tooltip("Kan izinin yerde kalma süresi (Saniye). Test için 5-10 yapabilirsin.")]
-    public float yokOlmaSuresi = 10f; 
+    [Tooltip("Kan izinin yerde kalma süresi (Saniye).")]
+    public float yokOlmaSuresi = 30f; 
     
     [Tooltip("Hangi katmanlar zemin olarak kabul edilsin?")]
     public LayerMask zeminKatmani;
 
     private ParticleSystem partikulSistemi;
     private List<ParticleCollisionEvent> carpismaOlaylari;
+    
+    // YENİ: Bu efekt daha önce kan bıraktı mı?
+    private bool izBiraktiMi = false; 
 
     void Start()
     {
@@ -34,6 +37,10 @@ public class BloodDecalHandler : MonoBehaviour
 
     void OnParticleCollision(GameObject other)
     {
+        // 1. KİLİT KONTROLÜ: Eğer bu kan grubu zaten yere bir iz bıraktıysa,
+        // diğer damlalar için işlem yapma. (Performans ve Görsellik için kritik)
+        if (izBiraktiMi) return;
+
         // Çarpan obje zemin mi?
         if ((zeminKatmani.value & (1 << other.layer)) > 0)
         {
@@ -41,11 +48,13 @@ public class BloodDecalHandler : MonoBehaviour
 
             for (int i = 0; i < olaySayisi; i++)
             {
+                // Şans faktörü
                 if (Random.value <= izBirakmaSansi)
                 {
                     IzOlustur(carpismaOlaylari[i]);
                     
-                    // Sadece 1 tane oluştur ve döngüden çık (Spam engelleme)
+                    // KİLİDİ AKTİF ET: Artık bu efekt bir daha iz bırakamaz.
+                    izBiraktiMi = true; 
                     break; 
                 }
             }
@@ -54,37 +63,32 @@ public class BloodDecalHandler : MonoBehaviour
 
     void IzOlustur(ParticleCollisionEvent olay)
     {
-        // 1. Liste Kontrolü: Liste boşsa hiç uğraşma
+        // Liste boşsa veya prefab yoksa çık
         if (kanIziPrefableri == null || kanIziPrefableri.Length == 0) return;
+
+        // Rastgele seçim
+        int rastgeleIndex = Random.Range(0, kanIziPrefableri.Length);
+        GameObject secilenKanPrefabi = kanIziPrefableri[rastgeleIndex];
+
+        // Inspector'da boş kutu varsa hata vermesin
+        if (secilenKanPrefabi == null) return;
 
         Vector3 pos = olay.intersection;
         Vector3 normal = olay.normal;
 
-        // 2. Rastgele bir prefab seç
-        int rastgeleIndex = Random.Range(0, kanIziPrefableri.Length);
-        GameObject secilenKanPrefabi = kanIziPrefableri[rastgeleIndex];
-
-        // --- KRİTİK DÜZELTME BURASI ---
-        // Eğer seçilen kutu Inspector'da boş bırakıldıysa (None), 
-        // sakın "boş obje" oluşturma. Direkt fonksiyonu bitir.
-        if (secilenKanPrefabi == null) 
-        {
-            return;
-        }
-
-        // 3. Kanı oluştur (Yüksekliği 0.04f yaptık)
+        // Kanı oluştur (Zeminle çakışmaması için 0.04f yükseklik)
         GameObject yeniIz = Instantiate(secilenKanPrefabi, pos + normal * 0.04f, Quaternion.LookRotation(normal));
 
-        // 4. İsimlendirme (Hierarchy'de takip edebilmen için)
+        // İsimlendirme ve Hiyerarşi düzeni
         yeniIz.name = "Kan_Izi_" + Random.Range(100, 999);
 
-        // 5. Rastgele Döndür ve Boyutlandır
+        // Rastgele Döndür ve Boyutlandır
         yeniIz.transform.Rotate(Vector3.forward, Random.Range(0, 360));
         
         float rastgeleBoyut = Random.Range(0.4f, 0.9f);
         yeniIz.transform.localScale = new Vector3(rastgeleBoyut, rastgeleBoyut, 1f);
 
-        // 6. Kesin Silinme Emri
+        // Sil
         Destroy(yeniIz, yokOlmaSuresi);
     }
 }
