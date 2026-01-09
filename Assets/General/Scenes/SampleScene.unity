@@ -489,6 +489,7 @@ MonoBehaviour:
     savasModunda: 0
     kilitlenmeMenzili: 10
     donusHizi: 10
+    girdiTamponSuresi: 0.5
   yon:
     mevcutYon: 2
     fareHassasiyeti: 0.1
@@ -500,7 +501,7 @@ MonoBehaviour:
     beklemeSuresi: 0.6
     atilmaGucu: 4
     atilmaSuresi: 0.2
-    hasar: 15
+    hasar: 5
     vurusSarsilmaSuresi: 0.5
   durum:
     maksimumCan: 100
@@ -512,7 +513,7 @@ MonoBehaviour:
     dusmanKatmani:
       serializedVersion: 2
       m_Bits: 64
-    vurusEfekti: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    vurusEfekti: {fileID: 8119657711661834131, guid: 57b896295bef7b2438a596ff0013bd81, type: 3}
     kameraScripti: {fileID: 330585549}
     sesKaynagi: {fileID: 428562016}
     sallamaSesi: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
@@ -523,8 +524,10 @@ MonoBehaviour:
   - saldiriAdi: Tekme
     tus: 102
     animatorTetikleyici: Tekme
-    sure: 5
-    hasar: 10
+    animasyonSuresi: 1.333
+    cooldown: 4
+    sonrakiKullanimZamani: 0
+    hasar: 4
     sersemletirMi: 1
     sersemletmeSuresi: 1
     geriItmeGucu: 2
@@ -533,8 +536,10 @@ MonoBehaviour:
   - saldiriAdi: KalkanSaldirisi
     tus: 101
     animatorTetikleyici: KalkanSaldirisi
-    sure: 2
-    hasar: 5
+    animasyonSuresi: 1.333
+    cooldown: 4
+    sonrakiKullanimZamani: 0
+    hasar: 2
     sersemletirMi: 1
     sersemletmeSuresi: 0.5
     geriItmeGucu: 1
@@ -861,6 +866,119 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &937903831
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 937903835}
+  - component: {fileID: 937903834}
+  - component: {fileID: 937903833}
+  - component: {fileID: 937903832}
+  m_Layer: 0
+  m_Name: BloodDecal
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!64 &937903832
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 937903831}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &937903833
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 937903831}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &937903834
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 937903831}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!4 &937903835
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 937903831}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0.32853, y: 4.06, z: 10.86405}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!1001 &1429560372
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -916,6 +1034,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       propertyPath: m_TagString
       value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 2042953256698253358, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -1.265
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
       propertyPath: m_Controller
@@ -1525,16 +1647,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
   savas:
-    hasar: 10
+    hasar: 5
     savunmaSikligi: 0.5
   ozelSaldiri:
     ihtimal: 0.3
     beklemeSuresi: 5
-    tekmeHasari: 5
+    tekmeHasari: 4
     tekmeSersemletmesi: 1.5
     tekmeItmeGucu: 6
     tekmeSesi: {fileID: 8300000, guid: 4ba2c343ab1918f4d81ad8b9744b76cf, type: 3}
-    kalkanHasari: 8
+    kalkanHasari: 2
     kalkanSersemletmesi: 1
     kalkanItmeGucu: 3
     kalkanSesi: {fileID: 8300000, guid: ef1beaf830c661540b0417a02dc79f6a, type: 3}
@@ -1560,7 +1682,7 @@ MonoBehaviour:
     devriyeMenzili: 12
     devriyeBeklemeSuresi: 4
   referanslar:
-    vurusEfekti: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    vurusEfekti: {fileID: 8119657711661834131, guid: 57b896295bef7b2438a596ff0013bd81, type: 3}
     sesKaynagi: {fileID: 2130248825}
     hasarSesi: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
     sallamaSesi: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
@@ -1695,3 +1817,4 @@ SceneRoots:
   - {fileID: 1606299042}
   - {fileID: 2117540984}
   - {fileID: 330585546}
+  - {fileID: 937903835}

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 500076266857433113}
   - component: {fileID: 1153379928931816635}
   - component: {fileID: 4070478312838729123}
+  - component: {fileID: -1349160948042428235}
   m_Layer: 1
   m_Name: HitEffect_Punch
   m_TagString: Untagged
@@ -3854,7 +3855,7 @@ ParticleSystem:
     maxCollisionShapes: 256
     quality: 0
     voxelSize: 0.5
-    collisionMessages: 0
+    collisionMessages: 1
     collidesWithDynamic: 1
     interiorCollisions: 0
   TriggerModule:
@@ -4894,3 +4895,22 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!114 &-1349160948042428235
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8119657711661834131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 559e7c219e3be9f43aa6a0a0c5b60f0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BloodDecalHandler
+  kanIziPrefableri:
+  - {fileID: 8505956342235670814, guid: c2eec206f3c2bee45994c4cd10ab423a, type: 3}
+  izBirakmaSansi: 0.005
+  yokOlmaSuresi: 30
+  zeminKatmani:
+    serializedVersion: 2
+    m_Bits: 128

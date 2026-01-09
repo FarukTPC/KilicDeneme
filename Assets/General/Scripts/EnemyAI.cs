@@ -13,6 +13,7 @@ public class EnemyAI : MonoBehaviour
     {
         [Tooltip("Düşmanın normal kılıç vuruşunun hasarı.")]
         public int hasar = 10;
+        
         [Tooltip("Düşmanın blok yapma ihtimali (0.0 = Asla yapmaz, 1.0 = Hep bloklar).")]
         [Range(0f, 1f)] public float savunmaSikligi = 0.6f;
     }
@@ -80,6 +81,7 @@ public class EnemyAI : MonoBehaviour
         [Header("TAKTİKSEL BEKLEME")]
         [Range(0f, 1f)] public float taktikselBeklemeIhtimali = 0.4f;
         public float taktikselBeklemeSuresi = 2.0f;
+        
         [Tooltip("Bekleme anında oyuncu yaklaşırsa Parry açma şansı.")]
         [Range(0f, 1f)] public float taktikselParrySansi = 0.5f;
 
@@ -169,7 +171,6 @@ public class EnemyAI : MonoBehaviour
         if (saglik.olduMu || saglik.sersemlediMi) 
         {
             // CRASH VE HAREKET FIX: Ajan null değilse, aktifse ve NavMesh üzerindeyse durdur.
-            // Bu kısım çok önemlidir, aksi takdirde ölü karakter yürümeye çalışabilir.
             if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             {
                 ajan.isStopped = true;
@@ -542,25 +543,20 @@ public class EnemyAI : MonoBehaviour
 
         mevcutCan -= dmg;
         
-        if(referanslar.vurusEfekti)
-        {
-            GameObject fx = Instantiate(referanslar.vurusEfekti, transform.position + Vector3.up, Quaternion.identity);
-            Destroy(fx, 2.0f);
-        }
-
+        // --- ÇİFT KAN FIX: BURADAKİ KAN EFEKTİ OLUŞTURMA SATIRI SİLİNDİ ---
+        // PlayerCombat.cs zaten bizim üzerimizde kan efekti oluşturuyor.
+        
         if(referanslar.sesKaynagi && referanslar.hasarSesi) 
         {
             referanslar.sesKaynagi.PlayOneShot(referanslar.hasarSesi);
         }
         
-        // Öldü mü kontrolü - Öldüyse geri tepme yapma (Crash önleyici)
         if (mevcutCan <= 0)
         {
             Ol(saldiriYonu);
         }
         else
         {
-            // Ölmediyse geri tepme yap
             if(saldiran && itmeGucu > 0) 
             {
                 StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
@@ -580,13 +576,10 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // --- ANIMASYON FIX (Ölüm Yönü Düzeltmesi) ---
     private void Ol(int oldurenYon)
     {
         if(saglik.olduMu) return;
         
-        // Eğer özel saldırı (3) ile öldüyse, Animator bunu tanımadığı için
-        // T-Pose'da kalmasın diye 1 (Normal Ön Ölüm) olarak değiştiriyoruz.
         if (oldurenYon == 3) oldurenYon = 1;
         
         StartCoroutine(OlumSureci(oldurenYon));
@@ -597,15 +590,12 @@ public class EnemyAI : MonoBehaviour
         saglik.olduMu = true;
         BlokuBirak();
         
-        // --- CRASH FIX: Ajan'a erişmeden önce kontrol et ---
-        // "Stop" komutu sadece aktif bir ajan üzerinde çalışabilir.
         if(ajan && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
         {
             ajan.isStopped = true;
             ajan.velocity = Vector3.zero;
         }
         
-        // Sonra kapat
         if(ajan) ajan.enabled = false;
         
         if(GetComponent<Collider>()) 
@@ -635,7 +625,6 @@ public class EnemyAI : MonoBehaviour
         
         animator.SetTrigger("Sersemleme");
         
-        // Stun anında ajanı durdur ve hedefini sil (Crash Fix Kontrollü)
         if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
         {
             ajan.isStopped = true;
@@ -645,7 +634,6 @@ public class EnemyAI : MonoBehaviour
         
         yield return new WaitForSeconds(sure);
         
-        // Stun bitince tekrar aç (Eğer ölmediyse)
         if(!saglik.olduMu && ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
         {
             ajan.isStopped = false;
@@ -670,7 +658,6 @@ public class EnemyAI : MonoBehaviour
 
     private IEnumerator GeriTepme(Transform saldiran, float guc, float sure)
     {
-        // Geri tepme anında NavMeshAgent'ı kapat ki manuel hareket ettirebilelim
         if(ajan) ajan.enabled = false;
         
         Vector3 yon = (transform.position - saldiran.position).normalized;
@@ -679,7 +666,6 @@ public class EnemyAI : MonoBehaviour
         float t=0;
         while(t<sure)
         {
-            // Ölüm kontrolü (Knockback sırasında ölürse durmalı)
             if(saglik.olduMu) yield break;
 
             transform.Translate(yon*guc*Time.deltaTime, Space.World);
@@ -691,8 +677,6 @@ public class EnemyAI : MonoBehaviour
         {
             if(ajan) ajan.enabled = true;
             
-            // Eğer geri tepme bittiğinde hala sersemse, ajanı tekrar durdur.
-            // Bu, stundayken hareket etme bug'ını çözer.
             if(saglik.sersemlediMi && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             {
                 ajan.isStopped = true;

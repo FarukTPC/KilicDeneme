@@ -48,6 +48,7 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.1f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\General\Scripts\BloodDecalHandler.cs" />
     <Compile Include="Assets\General\Scripts\PlayerController.cs" />
     <Compile Include="Assets\General\Scripts\EnemyAI.cs" />
     <Compile Include="Assets\General\Scripts\TPSCamera.cs" />
@@ -71,6 +72,7 @@
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Fencing Animset\Animation List - Fencing Animset.txt" />
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\2Handed Gun Animset\Animation List - 2 Handed Gun Animset.txt" />
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Hostage Animset\FBX motions\Animation List - Hostage Animset.txt" />
+    <None Include="Assets\General\Prefabs\Blood decal pack\readme.txt" />
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\2Handed Melee Weapon Animset\Animation List - 2 Handed Melee Weapon Animset.txt" />
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Campfire Animset\Animation List - Campfire Animset.txt" />
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Dual Swords Animset\Animation List - Dual Swords Animset.txt" />
