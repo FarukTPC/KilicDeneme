@@ -45,12 +45,12 @@ public class TPSCamera : MonoBehaviour
     private float hedefY = 0f;
     private float suankiX = 0f;
     private float suankiY = 0f;
-    private float xHizi = 0f; // SmoothDamp için ref
-    private float yHizi = 0f; // SmoothDamp için ref
+    private float xHizi = 0f; 
+    private float yHizi = 0f; 
     
-    private Vector3 suankiTakipHizi; // Pozisyon takibi için ref
-    private Vector3 hedefPozisyonu;  // Kameranın gitmek istediği yer
-    private float guncelMesafe;      // O anki zoom seviyesi
+    private Vector3 suankiTakipHizi; 
+    private Vector3 hedefPozisyonu;  
+    private float guncelMesafe;      
 
     // Sarsıntı
     private float sarsintiSuresi = 0f;
@@ -59,21 +59,33 @@ public class TPSCamera : MonoBehaviour
 
     private void Start()
     {
-        // Fareyi gizle ve kilitle
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // Başlangıç açılarını ayarla
-        Vector3 acilar = transform.eulerAngles;
-        hedefX = acilar.y;
-        hedefY = acilar.x;
+        // --- DÜZELTME BURADA ---
+        // Eskiden transform.eulerAngles alıyorduk, şimdi manuel atıyoruz.
         
+        if (hedef != null)
+        {
+            // Y eksenini (Sağ/Sol) oyuncunun baktığı yöne eşitle (Arkasına geç)
+            hedefX = hedef.eulerAngles.y;
+            
+            // X eksenini (Yukarı/Aşağı) 10 derece yap (Hafif aşağı baksın, gökyüzüne değil)
+            hedefY = 10f; 
+        }
+        else
+        {
+            Vector3 acilar = transform.eulerAngles;
+            hedefX = acilar.y;
+            hedefY = acilar.x;
+        }
+        
+        // Başlangıçta yumuşak geçiş olmasın, direkt oraya ışınlansın
         suankiX = hedefX;
         suankiY = hedefY;
 
         guncelMesafe = varsayilanMesafe;
 
-        // Otomatik bul
         if (oyuncuSavasScripti == null && hedef != null)
             oyuncuSavasScripti = hedef.GetComponent<PlayerCombat>();
     }
@@ -89,64 +101,46 @@ public class TPSCamera : MonoBehaviour
 
     private void GirdileriYonet()
     {
-        // 1. SAVAŞ MODU VE LOCK-ON
         if (oyuncuSavasScripti != null && oyuncuSavasScripti.savas.savasModunda && oyuncuSavasScripti.mevcutHedef != null)
         {
-            // Düşmana kilitlen
             Vector3 dusmanaYon = oyuncuSavasScripti.mevcutHedef.position - hedef.position;
             if (dusmanaYon != Vector3.zero)
             {
                 Quaternion bakis = Quaternion.LookRotation(dusmanaYon);
-                // X ekseni (yukarı/aşağı) yine farenin kontrolünde olsun ama Y (sağ/sol) düşmana dönsün
                 hedefX = Mathf.LerpAngle(hedefX, bakis.eulerAngles.y, Time.deltaTime * kilitlenmeHizi);
-                
-                // İstersen Y eksenini (Yukarı/Aşağı) da kilitleyebilirsin ama oyuncuya bırakmak daha rahattır.
-                // fareY girdisini hala alıyoruz:
                 hedefY -= Input.GetAxis("Mouse Y") * fareHassasiyeti;
             }
         }
         else
         {
-            // 2. NORMAL MOD (Serbest Kamera)
             hedefX += Input.GetAxis("Mouse X") * fareHassasiyeti;
             hedefY -= Input.GetAxis("Mouse Y") * fareHassasiyeti;
         }
 
-        // Açıları sınırla
         hedefY = Mathf.Clamp(hedefY, minDikeyAci, maksDikeyAci);
 
-        // Yumuşatma (SmoothDamp - En kaliteli geçiş yöntemidir)
         suankiX = Mathf.SmoothDamp(suankiX, hedefX, ref xHizi, donusYumusakligi);
         suankiY = Mathf.SmoothDamp(suankiY, hedefY, ref yHizi, donusYumusakligi);
     }
 
     private void KamerayiHareketEttir()
     {
-        // 1. Pivot Noktasını Belirle (Karakterin kafası)
-        // Karakter hareket ettiğinde kamera anında değil, çok hafif bir gecikmeyle (damping) takip etsin
         Vector3 karakterKafaNoktasi = hedef.position + Vector3.up * yukseklikPayi;
-        
-        // 2. Rotasyonu Hesapla
         Quaternion rotasyon = Quaternion.Euler(suankiY, suankiX, 0);
 
-        // 3. Hedef Mesafeyi Belirle (Savaşta uzaklaş)
         float istenenMesafe = varsayilanMesafe;
         if (oyuncuSavasScripti && oyuncuSavasScripti.savas.savasModunda)
             istenenMesafe += savasMesafesiEk;
 
-        // 4. Duvar Kontrolü (Raycast / SphereCast)
-        // Kameradan karaktere değil, karakterden kameraya doğru ışın atıyoruz
-        // Omuz payını da hesaba katarak yön belirliyoruz
-        Vector3 kameraYonu = rotasyon * Vector3.back; // Arkaya doğru
-        Vector3 omuzVektoru = rotasyon * Vector3.right * omuzPayi; // Sağa doğru
+        Vector3 kameraYonu = rotasyon * Vector3.back; 
+        Vector3 omuzVektoru = rotasyon * Vector3.right * omuzPayi; 
         
         Vector3 finalHedefNoktasi = karakterKafaNoktasi + omuzVektoru + (kameraYonu * istenenMesafe);
-        Vector3 rayBaslangic = karakterKafaNoktasi + omuzVektoru; // Kafa hizasından omuz hizasına kaymış nokta
+        Vector3 rayBaslangic = karakterKafaNoktasi + omuzVektoru; 
         
         RaycastHit hit;
         Vector3 sonucPozisyon;
 
-        // Kafadan kameranın olacağı yere ışın at, duvara çarparsa oraya koy
         if (Physics.SphereCast(rayBaslangic, 0.2f, (finalHedefNoktasi - rayBaslangic).normalized, out hit, istenenMesafe, engelKatmani))
         {
             guncelMesafe = Mathf.Clamp(hit.distance, minKameraMesafesi, istenenMesafe);
@@ -157,12 +151,9 @@ public class TPSCamera : MonoBehaviour
             sonucPozisyon = finalHedefNoktasi;
         }
 
-        // 5. Pozisyonu Uygula (Sarsıntı Dahil)
         transform.rotation = rotasyon;
         transform.position = Vector3.SmoothDamp(transform.position, sonucPozisyon + sarsintiVektoru, ref suankiTakipHizi, takipYumusakligi);
     }
-
-    // --- YARDIMCILAR ---
     
     public void KamerayiSalla(float sure, float guc)
     {

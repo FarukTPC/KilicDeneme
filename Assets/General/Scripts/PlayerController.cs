@@ -16,6 +16,9 @@ public class PlayerController : MonoBehaviour
         public float ziplamaGucu = 1.0f;
         [Tooltip("Yer çekimi kuvveti (Negatif olmalı, örn: -9.81).")]
         public float yerCekimi = -9.81f;
+        
+        [Tooltip("Dururken veya koşmaya başlarken animasyonun ne kadar yumuşak geçiş yapacağı. (0.1 = Hızlı, 0.3 = Ağır).")]
+        public float animasyonYumusatma = 0.15f; // YENİ AYAR
     }
 
     [System.Serializable]
@@ -48,7 +51,7 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         kontrolcu = GetComponent<CharacterController>();
-        savasScripti = GetComponent<PlayerCombat>(); // Otomatik bul
+        savasScripti = GetComponent<PlayerCombat>();
         animator = GetComponent<Animator>();
 
         if (referans.kameraTransform == null && Camera.main != null)
@@ -57,26 +60,22 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        // --- STUN VE ÖLÜM KİLİDİ (KESİN ÇÖZÜM) ---
-        // Eğer savaş scripti varsa ve karakter ölü ya da meşgulse (stunluysa)
+        // --- STUN VE ÖLÜM KİLİDİ ---
         if (savasScripti != null && (savasScripti.durum.olduMu || savasScripti.durum.mesgulMu))
         {
-            // Sadece yer çekimini uygula, ASLA yürüme
-            YerCekimiUygula();
-            
-            // Animasyon hızını zorla sıfırla ki koşuyor gibi görünmesin
-            animator.SetFloat("Hiz", 0f);
+            // Stun yediğinde de animasyon aniden kesilmesin, yavaşça sıfıra insin
+            animator.SetFloat("Hiz", 0f, hareket.animasyonYumusatma, Time.deltaTime);
+            YerCekimiUygula(true); 
             return; 
         }
-        // ------------------------------------------
 
         HareketEt();
-        YerCekimiUygula();
+        YerCekimiUygula(false);
     }
 
     private void HareketEt()
     {
-        if(referans.zeminKontrol)
+        if (referans.zeminKontrol)
             yerdeMi = Physics.CheckSphere(referans.zeminKontrol.position, referans.zeminMesafe, referans.zeminKatmani);
         
         if (yerdeMi && hizVektoru.y < 0)
@@ -88,7 +87,9 @@ public class PlayerController : MonoBehaviour
         float z = Input.GetAxisRaw("Vertical");
         Vector3 girisYonu = new Vector3(x, 0f, z).normalized;
 
-        // 1. SAVAS MODU (LOCK-ON YAN YURUME)
+        float hedefAnimHizi = 0f; // Animasyona göndereceğimiz ham değer
+
+        // 1. SAVAS MODU
         if (savasScripti.savas.savasModunda && savasScripti.mevcutHedef != null)
         {
             Vector3 dusmanaYon = (savasScripti.mevcutHedef.position - transform.position).normalized;
@@ -100,14 +101,12 @@ public class PlayerController : MonoBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, bakis, Time.deltaTime * 10f);
             }
 
-            // Hareketi düşmana göre hesapla (İçeri çekilmeyi önleyen kod)
             Vector3 sagYon = Vector3.Cross(Vector3.up, dusmanaYon); 
             Vector3 hareketYonu = (sagYon * x) + (dusmanaYon * z);
             
             kontrolcu.Move(hareketYonu.normalized * hareket.yurumeHizi * Time.deltaTime);
 
-            float animHizi = girisYonu.magnitude > 0.1f ? 1f : 0f;
-            animator.SetFloat("Hiz", animHizi, 0.1f, Time.deltaTime); 
+            hedefAnimHizi = girisYonu.magnitude > 0.1f ? 1f : 0f;
         }
         // 2. NORMAL MOD
         else
@@ -123,14 +122,18 @@ public class PlayerController : MonoBehaviour
                 float hiz = Input.GetKey(KeyCode.LeftShift) ? hareket.kosmaHizi : hareket.yurumeHizi;
                 kontrolcu.Move(hareketYonu.normalized * hiz * Time.deltaTime);
                 
-                float animHizi = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
-                animator.SetFloat("Hiz", animHizi, 0.1f, Time.deltaTime); 
+                hedefAnimHizi = Input.GetKey(KeyCode.LeftShift) ? 2f : 1f;
             }
             else
             {
-                animator.SetFloat("Hiz", 0, 0.1f, Time.deltaTime);
+                hedefAnimHizi = 0f;
             }
         }
+
+        // --- DÜZELTME BURADA ---
+        // SetFloat'ın 3. ve 4. parametreleri "DampTime" (Yumuşatma) ve "DeltaTime"dır.
+        // Bu sayede BlendTree değerleri anında değişmez, akıcı bir şekilde kayar.
+        animator.SetFloat("Hiz", hedefAnimHizi, hareket.animasyonYumusatma, Time.deltaTime);
 
         if (Input.GetButtonDown("Jump") && yerdeMi)
         {
@@ -139,8 +142,9 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private void YerCekimiUygula()
+    private void YerCekimiUygula(bool kilitliMod)
     {
+        if (kilitliMod) { hizVektoru.x = 0; hizVektoru.z = 0; }
         hizVektoru.y += hareket.yerCekimi * Time.deltaTime;
         kontrolcu.Move(hizVektoru * Time.deltaTime);
     }
