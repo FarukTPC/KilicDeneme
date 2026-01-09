@@ -31,10 +31,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: ParrySuccess
+    m_ConditionEvent: SavusturmaBasarili
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3966400401786978050}
@@ -59,10 +59,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 2
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 3119160124067499653}
@@ -109,10 +109,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: ParrySuccess
+    m_ConditionEvent: SavusturmaBasarili
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 1
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 2202865865566546250}
@@ -144,12 +144,12 @@ AnimatorState:
   m_Position: {x: 50, y: 50, z: 0}
   m_IKOnFeet: 0
   m_WriteDefaultValues: 1
-  m_Mirror: 0
+  m_Mirror: 1
   m_SpeedParameterActive: 0
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 7400000, guid: 60bbdb045a9caec418f3a44d3ddebcd5, type: 2}
+  m_Motion: {fileID: 7400000, guid: 2c8b126f94d35f9488164522805e04f7, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -214,7 +214,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: CombatMode
+    m_ConditionEvent: SavasModu
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 2591352096281096495}
@@ -239,10 +239,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: Attack
+    m_ConditionEvent: Saldiri
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 6074731390866337542}
@@ -321,10 +321,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: DeathType
+    m_ConditionEvent: OlumTipi
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: Die
+    m_ConditionEvent: Olum
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 7097090277854798147}
@@ -404,7 +404,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: Stun
+    m_ConditionEvent: Sersemleme
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -4186369744888535128}
@@ -456,10 +456,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: Attack
+    m_ConditionEvent: Saldiri
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 2
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -6041627111443460616}
@@ -507,7 +507,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: Blend
     m_Mirror: 0
-  m_BlendParameter: Speed
+  m_BlendParameter: Hiz
   m_BlendParameterY: Blend
   m_MinThreshold: 0
   m_MaxThreshold: 1
@@ -523,73 +523,73 @@ AnimatorController:
   m_Name: Player
   serializedVersion: 5
   m_AnimatorParameters:
-  - m_Name: Speed
+  - m_Name: Hiz
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: Attack
+  - m_Name: Saldiri
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: Kick
+  - m_Name: Tekme
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: ShieldA
+  - m_Name: KalkanSaldirisi
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: Stun
+  - m_Name: Sersemleme
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: Hit
+  - m_Name: Hasar
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: AttackDirection
+  - m_Name: SaldiriYonu
     m_Type: 3
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: DeathType
+  - m_Name: OlumTipi
     m_Type: 3
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: IsBlocking
+  - m_Name: Blokluyor
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: CombatMode
+  - m_Name: SavasModu
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: Die
+  - m_Name: Olum
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: ParrySuccess
+  - m_Name: SavusturmaBasarili
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -617,7 +617,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: CombatMode
+    m_ConditionEvent: SavasModu
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 2591352096281096495}
@@ -691,7 +691,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: Kick
+    m_ConditionEvent: Tekme
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 7330309233603281789}
@@ -716,10 +716,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 6471891561501891335}
@@ -798,10 +798,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: DeathType
+    m_ConditionEvent: OlumTipi
     m_EventTreshold: 1
   - m_ConditionMode: 1
-    m_ConditionEvent: Die
+    m_ConditionEvent: Olum
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 5232923384820882323}
@@ -899,7 +899,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: Speed
     m_Mirror: 0
-  m_BlendParameter: Speed
+  m_BlendParameter: Hiz
   m_BlendParameterY: Speed
   m_MinThreshold: 0
   m_MaxThreshold: 1
@@ -968,10 +968,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: Attack
+    m_ConditionEvent: Saldiri
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 2
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -6041627111443460616}
@@ -996,7 +996,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: ShieldA
+    m_ConditionEvent: KalkanSaldirisi
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 2109606227527047123}
@@ -1069,10 +1069,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 1
   - m_ConditionMode: 1
-    m_ConditionEvent: Attack
+    m_ConditionEvent: Saldiri
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -7238535349376981553}
@@ -1097,7 +1097,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: CombatMode
+    m_ConditionEvent: SavasModu
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3034494154496166003}
@@ -1149,10 +1149,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: ParrySuccess
+    m_ConditionEvent: SavusturmaBasarili
     m_EventTreshold: 0
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 2
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -2131746113858901437}
@@ -1380,10 +1380,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: DeathType
+    m_ConditionEvent: OlumTipi
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: Die
+    m_ConditionEvent: Olum
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 3195650251359931540}
@@ -1408,7 +1408,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3034494154496166003}
@@ -1433,10 +1433,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 6
-    m_ConditionEvent: AttackDirection
+    m_ConditionEvent: SaldiriYonu
     m_EventTreshold: 1
   - m_ConditionMode: 1
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 1060171779782543396}
@@ -1461,7 +1461,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3034494154496166003}
@@ -1486,7 +1486,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: IsBlocking
+    m_ConditionEvent: Blokluyor
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3034494154496166003}

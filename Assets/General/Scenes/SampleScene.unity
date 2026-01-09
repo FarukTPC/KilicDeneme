@@ -269,23 +269,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c701119226e4244a9314d8ed0c4b93a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TPSCamera
-  target: {fileID: 428562013}
-  lookAtOffSet: {x: 0.7, y: 1.45, z: 0}
-  playerCombat: {fileID: 428562015}
-  lockOnSmoothSpeed: 10
-  mouseSensitivityX: 180
-  mouseSensitivityY: 180
-  rotationSmoothTime: 0.05
-  moveSmoothTime: 0.08
-  normalDistance: 2.5
-  combatDistance: 2.5
-  minDistance: 1.2
-  maxDistance: 3
-  collisionLayers:
+  hedef: {fileID: 428562013}
+  yukseklikPayi: 1.4
+  omuzPayi: 0.5
+  varsayilanMesafe: 2
+  fareHassasiyeti: 3
+  donusYumusakligi: 0.05
+  takipYumusakligi: 0.08
+  minDikeyAci: -10
+  maksDikeyAci: 50
+  engelKatmani:
     serializedVersion: 2
     m_Bits: 129
-  minVerticalAngle: -10
-  maxVerticalAngle: 20
+  minKameraMesafesi: 0.5
+  oyuncuSavasScripti: {fileID: 428562015}
+  savasMesafesiEk: 1
+  kilitlenmeHizi: 10
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -455,19 +454,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e25147e3dbb4964fa332d1a3d7d805b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  moveSettings:
-    walkSpeed: 2
-    runSpeed: 5
-    turnSmoothTime: 0.1
-    jumpHeight: 1
-    gravity: -9.81
-  refs:
-    cameraTransform: {fileID: 330585546}
-    groundCheck: {fileID: 913436584}
-    groundDistance: 0.4
-    groundMask:
+  hareket:
+    yurumeHizi: 2
+    kosmaHizi: 5
+    donusYumusakligi: 0.1
+    ziplamaGucu: 1
+    yerCekimi: -9.81
+    animasyonYumusatma: 0.3
+  referans:
+    kameraTransform: {fileID: 0}
+    zeminKontrol: {fileID: 0}
+    zeminMesafe: 0.4
+    zeminKatmani:
       serializedVersion: 2
-      m_Bits: 128
+      m_Bits: 0
 --- !u!4 &428562013 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: bfa7c197a44b5c240ad399237222832f, type: 3}
@@ -485,61 +485,62 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc6c4aaa5768f40408e918bcb6d46184, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
-  combat:
-    isInCombatMode: 0
-    lockOnRange: 10
-    rotationSpeed: 10
-  direction:
-    currentDirection: 2
-    mouseThreshold: 0.1
-  parry:
-    stunDuration: 2
-    successSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
-  attack:
-    cooldown: 0.6
-    lungeForce: 4
-    lungeDuration: 0.2
-    damage: 10
-    hitStunDuration: 0.5
-  status:
-    maxHealth: 100
-    isDead: 0
-    isBusy: 0
-  refs:
-    attackPoint: {fileID: 594195401}
-    attackRange: 1
-    enemyLayers:
+  savas:
+    savasModunda: 0
+    kilitlenmeMenzili: 10
+    donusHizi: 10
+  yon:
+    mevcutYon: 2
+    fareHassasiyeti: 0.1
+    yukariZorlukCarpani: 1.5
+  savusturma:
+    sersemletmeSuresi: 2
+    basariSesi: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  saldiri:
+    beklemeSuresi: 0.6
+    atilmaGucu: 4
+    atilmaSuresi: 0.2
+    hasar: 15
+    vurusSarsilmaSuresi: 0.5
+  durum:
+    maksimumCan: 100
+    olduMu: 0
+    mesgulMu: 0
+  referanslar:
+    saldiriNoktasi: {fileID: 594195401}
+    saldiriCapi: 1
+    dusmanKatmani:
       serializedVersion: 2
       m_Bits: 64
-    hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
-    tpsCamera: {fileID: 330585549}
-    audioSource: {fileID: 428562016}
-    swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-    hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
-    shakeDuration: 0.2
-    shakeMagnitude: 0.3
-  specialAttacks:
-  - attackName: Kick
-    inputKey: 101
-    triggerName: Kick
-    duration: 1.167
-    damage: 5
-    causesStun: 1
-    stunDuration: 4
-    knockbackForce: 12
-    knockbackDuration: 0.3
-    skillActionSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-  - attackName: ShieldAttack
-    inputKey: 102
-    triggerName: ShieldA
-    duration: 1.167
-    damage: 5
-    causesStun: 1
-    stunDuration: 2
-    knockbackForce: 8
-    knockbackDuration: 0.2
-    skillActionSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
-  currentTarget: {fileID: 0}
+    vurusEfekti: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    kameraScripti: {fileID: 330585549}
+    sesKaynagi: {fileID: 428562016}
+    sallamaSesi: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+    isabetSesi: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
+    sarsintiSuresi: 0.2
+    sarsintiSiddeti: 0.3
+  ozelSaldirilar:
+  - saldiriAdi: Tekme
+    tus: 102
+    animatorTetikleyici: Tekme
+    sure: 5
+    hasar: 10
+    sersemletirMi: 1
+    sersemletmeSuresi: 1
+    geriItmeGucu: 2
+    geriItmeSuresi: 0.6
+    yetenekSesi: {fileID: 8300000, guid: 4ba2c343ab1918f4d81ad8b9744b76cf, type: 3}
+  - saldiriAdi: KalkanSaldirisi
+    tus: 101
+    animatorTetikleyici: KalkanSaldirisi
+    sure: 2
+    hasar: 5
+    sersemletirMi: 1
+    sersemletmeSuresi: 0.5
+    geriItmeGucu: 1
+    geriItmeSuresi: 0.6
+    yetenekSesi: {fileID: 8300000, guid: ef1beaf830c661540b0417a02dc79f6a, type: 3}
+  mevcutHedef: {fileID: 0}
 --- !u!82 &428562016
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1523,33 +1524,47 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 84e857e2070aee945b207a9d40d59e38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
-  stats:
-    damage: 10
-    defenseFrequency: 0.6
-  special:
-    chance: 0.3
-    kickDamage: 5
-    kickStun: 1.5
-    kickKnockback: 6
-    shieldDamage: 8
-    shieldStun: 1
-    shieldKnockback: 3
-  parry:
-    stunDuration: 2
-    successSound: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
-  health:
-    maxHealth: 100
-    isDead: 0
-    isStunned: 0
-  ai:
-    attackRange: 1.5
-    detectionRange: 10
-    attackCooldown: 2
-  refs:
-    hitEffectPrefab: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
-    audioSource: {fileID: 2130248825}
-    hitSound: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
-    swingSound: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+  savas:
+    hasar: 10
+    savunmaSikligi: 0.5
+  ozelSaldiri:
+    ihtimal: 0.3
+    beklemeSuresi: 5
+    tekmeHasari: 5
+    tekmeSersemletmesi: 1.5
+    tekmeItmeGucu: 6
+    tekmeSesi: {fileID: 8300000, guid: 4ba2c343ab1918f4d81ad8b9744b76cf, type: 3}
+    kalkanHasari: 8
+    kalkanSersemletmesi: 1
+    kalkanItmeGucu: 3
+    kalkanSesi: {fileID: 8300000, guid: ef1beaf830c661540b0417a02dc79f6a, type: 3}
+  savusturma:
+    sersemletmeSuresi: 2
+    basariSesi: {fileID: 8300000, guid: 1eabcc2adf2889f4d9d52b30d26afcca, type: 3}
+  saglik:
+    maksimumCan: 100
+    olduMu: 0
+    sersemlediMi: 0
+  yapayZeka:
+    saldiriMenzili: 1.5
+    farkEtmeMenzili: 5
+    vazgecmeMenzili: 10
+    saldiriBeklemeSuresi: 2
+    kovalamaHizi: 1.5
+    savasYuruyusHizi: 1
+    devriyeHizi: 1.5
+    animasyonYumusatma: 0.3
+    taktikselBeklemeIhtimali: 0.5
+    taktikselBeklemeSuresi: 5
+    taktikselParrySansi: 0.5
+    devriyeMenzili: 12
+    devriyeBeklemeSuresi: 4
+  referanslar:
+    vurusEfekti: {fileID: 5330403429107265943, guid: a6c371e9e415c1d408f89a367c138e1f, type: 3}
+    sesKaynagi: {fileID: 2130248825}
+    hasarSesi: {fileID: 8300000, guid: 6b662974408665c4eba5474a375f6152, type: 3}
+    sallamaSesi: {fileID: 8300000, guid: 5f3b963773e198648964b64def64c3ce, type: 3}
+    zaferSesi: {fileID: 8300000, guid: 9450827e77678014fbb13b6bbc33f462, type: 3}
 --- !u!195 &2130248833
 NavMeshAgent:
   m_ObjectHideFlags: 0
