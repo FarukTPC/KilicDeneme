@@ -17,9 +17,7 @@ public class PlayerCombat : MonoBehaviour
         public float kilitlenmeMenzili = 10f;
         [Tooltip("Karakterin kilitlendiği düşmana dönme hızı.")]
         public float donusHizi = 10f;
-        
-        // --- YENİ EKLENEN AYAR ---
-        [Tooltip("Erken tıklamaları ne kadar süre hafızada tutsun? (Örn: 0.5 saniye önce bassan bile saldırır).")]
+        [Tooltip("Erken tıklamaları ne kadar süre hafızada tutsun?")]
         public float girdiTamponSuresi = 0.5f; 
     }
 
@@ -80,10 +78,21 @@ public class PlayerCombat : MonoBehaviour
     [System.Serializable]
     public struct OzelSaldiri
     {
+        [Header("TEMEL AYARLAR")]
         public string saldiriAdi;      
         public KeyCode tus;       
         public string animatorTetikleyici;    
-        public float sure;
+        
+        [Header("ZAMANLAMALAR")]
+        [Tooltip("Animasyonun (meşguliyetin) süresi. Bu süre boyunca başka hareket yapılamaz.")]
+        public float animasyonSuresi; 
+        
+        [Tooltip("Bu yeteneğin tekrar kullanılabilmesi için geçmesi gereken süre (Cooldown).")]
+        public float cooldown; 
+
+        [HideInInspector] public float sonrakiKullanimZamani;
+
+        [Header("HASAR VE ETKİ")]
         public int hasar; 
         public bool sersemletirMi;
         public float sersemletmeSuresi;       
@@ -101,12 +110,11 @@ public class PlayerCombat : MonoBehaviour
     [Header("ÖZEL YETENEKLER")] public List<OzelSaldiri> ozelSaldirilar;
 
     // --- GİZLİ DEĞİŞKENLER ---
-    private float sonrakiSaldiriZamani = 0f;
+    private float sonrakiSaldiriZamani = 0f; 
     private int mevcutCan;
     private bool blokluyorMu = false;
     private bool saldiriyorMu = false;
     
-    // YENİ: Input Buffer (Girdi Hafızası) için değişken
     private float sonTiklamaZamani = -1f;
 
     private Vector3 baslangicPozisyonu;
@@ -137,6 +145,8 @@ public class PlayerCombat : MonoBehaviour
     private void Update()
     {
         if (durum.olduMu) return;
+        
+        // Burası çok önemli: Meşgulse (Stun, Özel Saldırı vb.) hiçbir input alma.
         if (durum.mesgulMu) return;
 
         if (Input.GetKeyDown(KeyCode.LeftControl)) SavasModunuDegistir();
@@ -145,9 +155,6 @@ public class PlayerCombat : MonoBehaviour
         {
             HedefleriTara();
             if (mevcutHedef != null) HedefeDon();
-            
-            // Saldırıyor olsak bile fare yönünü güncellemeye devam et ki
-            // combo sırasında yön değiştirebilelim (Buffer kullanıldığında doğru yön gitsin)
             FareYonunuBelirle(); 
         }
         else
@@ -159,7 +166,6 @@ public class PlayerCombat : MonoBehaviour
 
         GirdileriKontrolEt();
 
-        // Güvenlik kilidi (Tutukluk önleyici)
         if (saldiriyorMu && Time.time > sonrakiSaldiriZamani + 1.0f)
         {
             saldiriyorMu = false;
@@ -230,20 +236,16 @@ public class PlayerCombat : MonoBehaviour
             yon.mevcutYon = x > 0 ? SaldiriYonu.Sag : SaldiriYonu.Sol;
         }
 
-        // Animatore sadece saldırmıyorsak veya buffer zamanındaysak gönderelim
-        // Ama yön değişkenini sürekli güncel tutuyoruz.
         if(!saldiriyorMu)
             _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
     }
 
     private void GirdileriKontrolEt()
     {
-        // 1. Sağ Tık (Blok)
         if (Input.GetMouseButton(1)) 
         {
             blokluyorMu = true;
             _animator.SetBool("Blokluyor", true); 
-            // Bloklarken saldırı bufferını sıfırla
             sonTiklamaZamani = -1f; 
             return;
         }
@@ -253,38 +255,30 @@ public class PlayerCombat : MonoBehaviour
             _animator.SetBool("Blokluyor", false);
         }
 
-        // 2. Özel Yetenekler
-        foreach(var yetenek in ozelSaldirilar)
+        for (int i = 0; i < ozelSaldirilar.Count; i++)
         {
-             if(Input.GetKeyDown(yetenek.tus) && Time.time >= sonrakiSaldiriZamani)
-             {
-                 StartCoroutine(OzelYetenekYap(yetenek));
-                 return;
-             }
+            if (Input.GetKeyDown(ozelSaldirilar[i].tus) && 
+                Time.time >= sonrakiSaldiriZamani && 
+                Time.time >= ozelSaldirilar[i].sonrakiKullanimZamani)
+            {
+                StartCoroutine(OzelYetenekYap(i));
+                return; 
+            }
         }
 
-        // --- 3. SALDIRI GİRDİSİ (BUFFER SİSTEMİ) ---
-        
-        // Tıklama yapıldığında zamanı kaydet (Erken basarsa hafızada tutsun)
         if (Input.GetMouseButtonDown(0))
         {
             sonTiklamaZamani = Time.time;
         }
 
-        // Saldırı Şartları:
-        // A) Tampon Süresi İçinde Tıklanmış mı? (Hafıza)
         bool tamponGecerli = (Time.time - sonTiklamaZamani) <= savas.girdiTamponSuresi;
-        
-        // B) VEYA şu an basılı tutuyor mu? (Hold desteği)
         bool basiliTutuyor = Input.GetMouseButton(0);
-
-        // C) Cooldown bitti mi?
         bool saldiriHazir = Time.time >= sonrakiSaldiriZamani;
 
         if ((tamponGecerli || basiliTutuyor) && saldiriHazir)
         {
             SaldiriYap();
-            sonTiklamaZamani = -1f; // Bufferı tüket
+            sonTiklamaZamani = -1f; 
         }
     }
 
@@ -310,7 +304,11 @@ public class PlayerCombat : MonoBehaviour
         
         if(referanslar.vurusEfekti) 
         {
-            GameObject efekt = Instantiate(referanslar.vurusEfekti, transform.position + Vector3.up, Quaternion.identity);
+            Vector3 vurusNoktasi = transform.position + Vector3.up;
+            Vector3 kanYonu = (saldiran.position - transform.position).normalized;
+            kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
+
+            GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(-kanYonu));
             Destroy(efekt, 2.0f);
         }
 
@@ -341,20 +339,35 @@ public class PlayerCombat : MonoBehaviour
         StartCoroutine(SersemlemeSureci(sure));
     }
 
+    // --- STUN HAREKET FIX ---
     private IEnumerator SersemlemeSureci(float sure)
     {
+        // 1. Önce kilitleri vur
         durum.mesgulMu = true; 
         saldiriyorMu = false;
         blokluyorMu = false;
         _animator.SetBool("Blokluyor", false);
 
-        // Hareket durdurma işlemi PlayerController içinde yapılıyor (mesgulMu check ile)
-
-        yield return new WaitForEndOfFrame();
+        // 2. Animasyonu tetikle
         _animator.SetTrigger("Sersemleme"); 
         
-        yield return new WaitForSeconds(sure);
+        // 3. Animasyonun devreye girmesi için çok kısa bekle (0.2sn)
+        // Bu süre içinde Animator State değişmiş olur.
+        yield return new WaitForSeconds(0.2f);
 
+        // 4. ŞİMDİ HESAPLAMA YAP:
+        // O an oynayan animasyonun (Stun animasyonu) uzunluğunu al.
+        float animasyonUzunlugu = _animator.GetCurrentAnimatorStateInfo(0).length;
+
+        // Bize gelen stun süresi (örn: 2sn) ile animasyon süresini (örn: 2.5sn) kıyasla.
+        // HANGİSİ BÜYÜKSE ONU KULLAN.
+        // Böylece animasyon bitmeden karakter ayağa kalkıp kaymaz.
+        float beklemeSuresi = Mathf.Max(sure, animasyonUzunlugu);
+
+        // İlk baştaki 0.2 saniyelik beklemeyi düşerek kalanı bekle.
+        yield return new WaitForSeconds(beklemeSuresi - 0.2f);
+
+        // 5. Kilitleri aç
         durum.mesgulMu = false;
     }
 
@@ -363,7 +376,6 @@ public class PlayerCombat : MonoBehaviour
         saldiriyorMu = true; 
         sonrakiSaldiriZamani = Time.time + saldiri.beklemeSuresi; 
         
-        // Saldırı anındaki yönü animatöre işle (Bufferdan gelen geç yön için önemli)
         _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
         _animator.SetTrigger("Saldiri"); 
         
@@ -373,14 +385,23 @@ public class PlayerCombat : MonoBehaviour
         StartCoroutine(HasarKontrolu(saldiri.hasar, false, 0, 0, 0)); 
     }
 
-    private IEnumerator OzelYetenekYap(OzelSaldiri yetenek) 
+    private IEnumerator OzelYetenekYap(int yetenekIndex) 
     { 
+        OzelSaldiri yetenek = ozelSaldirilar[yetenekIndex];
+
+        sonrakiSaldiriZamani = Time.time + yetenek.animasyonSuresi; 
+        yetenek.sonrakiKullanimZamani = Time.time + yetenek.cooldown;
+        ozelSaldirilar[yetenekIndex] = yetenek;
+
         durum.mesgulMu = true; 
-        sonrakiSaldiriZamani = Time.time + yetenek.sure; 
         _animator.SetTrigger(yetenek.animatorTetikleyici); 
+        
         if(referanslar.sesKaynagi && yetenek.yetenekSesi) referanslar.sesKaynagi.PlayOneShot(yetenek.yetenekSesi); 
-        StartCoroutine(SaldiriDurumuSifirla(yetenek.sure)); 
+        
+        StartCoroutine(SaldiriDurumuSifirla(yetenek.animasyonSuresi)); 
+        
         yield return StartCoroutine(HasarKontrolu(yetenek.hasar, yetenek.sersemletirMi, yetenek.sersemletmeSuresi, yetenek.geriItmeGucu, yetenek.geriItmeSuresi, true)); 
+        
         durum.mesgulMu = false; 
     }
 
@@ -404,6 +425,18 @@ public class PlayerCombat : MonoBehaviour
             EnemyAI dusman = carpan.GetComponent<EnemyAI>(); 
             if(dusman) 
             { 
+                Vector3 vurusNoktasi = carpan.ClosestPoint(referanslar.saldiriNoktasi.position);
+                Vector3 kanYonu = (dusman.transform.position - transform.position).normalized;
+                kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
+
+                if(referanslar.vurusEfekti) 
+                {
+                    GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(kanYonu));
+                    float rBoyut = Random.Range(0.8f, 1.2f);
+                    efekt.transform.localScale = Vector3.one * rBoyut;
+                    Destroy(efekt, 2.0f);
+                }
+
                 int saldiriYonuInt = ozelMi ? 3 : (int)yon.mevcutYon; 
                 dusman.HasarAl(hasarMiktari, transform, saldiriYonuInt, itmeGucu, itmeSuresi); 
                 if(sersemlet) dusman.Sersemle(sersSure); 
@@ -421,7 +454,6 @@ public class PlayerCombat : MonoBehaviour
 
         if (_oyuncuHareketScripti) _oyuncuHareketScripti.enabled = false;
         
-        // Fix: Özel saldırı (3) gelirse 1 yap
         if (oldurenYon == 3) oldurenYon = 1;
 
         _animator.SetInteger("OlumTipi", oldurenYon); 

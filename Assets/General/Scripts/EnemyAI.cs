@@ -168,7 +168,8 @@ public class EnemyAI : MonoBehaviour
         // --- 1. STUN VE ÖLÜM KİLİDİ (KESİN ÇÖZÜM) ---
         if (saglik.olduMu || saglik.sersemlediMi) 
         {
-            // CRASH FIX: Ajan null değilse, aktifse ve NavMesh üzerindeyse durdur.
+            // CRASH VE HAREKET FIX: Ajan null değilse, aktifse ve NavMesh üzerindeyse durdur.
+            // Bu kısım çok önemlidir, aksi takdirde ölü karakter yürümeye çalışabilir.
             if(ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             {
                 ajan.isStopped = true;
@@ -182,7 +183,7 @@ public class EnemyAI : MonoBehaviour
                 animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
             }
             
-            // Hareket kodlarına inme
+            // Hareket kodlarına inme, buradan çık
             return; 
         }
 
@@ -478,27 +479,18 @@ public class EnemyAI : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f);
 
-
-    if (oyuncu != null && Vector3.Distance(transform.position, oyuncu.position) <= yapayZeka.saldiriMenzili + 0.8f)
-{
-    PlayerCombat pc = oyuncu.GetComponent<PlayerCombat>();
-    if (pc)
-    {
-        // --- DÜŞMAN VURDUĞUNDA KAN ÇIKSIN ---
-        if(referanslar.vurusEfekti)
+        if (oyuncu != null && Vector3.Distance(transform.position, oyuncu.position) <= yapayZeka.saldiriMenzili + 0.8f)
         {
-            // Oyuncunun göğüs hizasında (Vector3.up * 1.2f) kan çıksın
-            Vector3 vurusNoktasi = oyuncu.position + Vector3.up * 1.2f;
-            // Kan oyuncunun arkasına doğru fışkırsın
-            Vector3 kanYonu = (oyuncu.position - transform.position).normalized;
-            Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(kanYonu));
+            PlayerCombat pc = oyuncu.GetComponent<PlayerCombat>();
+            if (pc)
+            {
+                pc.HasarAl(guncelHasar, transform, saldiriYonuInt, guncelItme, 0.2f);
+                if (guncelSersem > 0) 
+                {
+                    pc.Sersemle(guncelSersem);
+                }
+            }
         }
-        // ------------------------------------
-
-        pc.HasarAl(guncelHasar, transform, saldiriYonuInt, guncelItme, 0.2f);
-        if (guncelSersem > 0) pc.Sersemle(guncelSersem);
-    }
-}
 
         yield return new WaitForSeconds(1.0f);
         sonrakiEylemZamani = Time.time + 0.5f;
@@ -549,6 +541,12 @@ public class EnemyAI : MonoBehaviour
         }
 
         mevcutCan -= dmg;
+        
+        if(referanslar.vurusEfekti)
+        {
+            GameObject fx = Instantiate(referanslar.vurusEfekti, transform.position + Vector3.up, Quaternion.identity);
+            Destroy(fx, 2.0f);
+        }
 
         if(referanslar.sesKaynagi && referanslar.hasarSesi) 
         {
@@ -582,10 +580,13 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    // --- ANIMASYON FIX (Ölüm Yönü Düzeltmesi) ---
     private void Ol(int oldurenYon)
     {
         if(saglik.olduMu) return;
         
+        // Eğer özel saldırı (3) ile öldüyse, Animator bunu tanımadığı için
+        // T-Pose'da kalmasın diye 1 (Normal Ön Ölüm) olarak değiştiriyoruz.
         if (oldurenYon == 3) oldurenYon = 1;
         
         StartCoroutine(OlumSureci(oldurenYon));
@@ -597,6 +598,7 @@ public class EnemyAI : MonoBehaviour
         BlokuBirak();
         
         // --- CRASH FIX: Ajan'a erişmeden önce kontrol et ---
+        // "Stop" komutu sadece aktif bir ajan üzerinde çalışabilir.
         if(ajan && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
         {
             ajan.isStopped = true;
@@ -668,6 +670,7 @@ public class EnemyAI : MonoBehaviour
 
     private IEnumerator GeriTepme(Transform saldiran, float guc, float sure)
     {
+        // Geri tepme anında NavMeshAgent'ı kapat ki manuel hareket ettirebilelim
         if(ajan) ajan.enabled = false;
         
         Vector3 yon = (transform.position - saldiran.position).normalized;
@@ -689,6 +692,7 @@ public class EnemyAI : MonoBehaviour
             if(ajan) ajan.enabled = true;
             
             // Eğer geri tepme bittiğinde hala sersemse, ajanı tekrar durdur.
+            // Bu, stundayken hareket etme bug'ını çözer.
             if(saglik.sersemlediMi && ajan.isActiveAndEnabled && ajan.isOnNavMesh)
             {
                 ajan.isStopped = true;
