@@ -5,16 +5,7 @@ public class SesYonetici : MonoBehaviour
 {
     public static SesYonetici Instance;
 
-    // Silah tiplerini ayırt etmek için Enum
-    public enum SilahSesTuru 
-    { 
-        StandartKilic, 
-        Tekme,         
-        Kalkan         
-    }
-
-    // --- SINIF TANIMLAMALARI BAŞLANGIÇ ---
-    // Bu sınıflar SesYonetici'nin içinde tanımlanmalı ki Inspector'da görünsün.
+    public enum SilahSesTuru { StandartKilic, Tekme, Kalkan }
 
     [System.Serializable]
     public class OrtamSesleri
@@ -30,9 +21,9 @@ public class SesYonetici : MonoBehaviour
         public AudioClip[] hasarAlmaSesleri; 
         public AudioClip olumSesi;
         
-        [Header("ADIM SESLERİ (DİZİ)")]
+        [Header("ADIM SESLERİ (ÇOK ÖNEMLİ)")]
         [Tooltip("Buraya 3-4 farklı 'Tak' sesi sürükle. Kod buradan rastgele seçecek.")]
-        public AudioClip[] adimSesleri; 
+        public AudioClip[] adimSesleri; // BU KISIM DİZİ OLMAK ZORUNDA
         
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
@@ -44,24 +35,19 @@ public class SesYonetici : MonoBehaviour
         public AudioClip zaferBagirmasi;
         public AudioClip[] hasarAlmaSesleri;
         public AudioClip olumSesi;
-        
-        [Tooltip("Düşman için loop (döngü) sesi.")]
         public AudioClip ayakSesiLoop; 
-
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
     [System.Serializable]
     public class EfektSesleri
     {
-        [Header("GENEL")]
         public AudioClip silahSallamaSesi; 
         [Range(0, 1)] public float sallamaSesDuzeyi = 1.0f;
 
         public AudioClip parrySesi;        
         [Range(0, 1)] public float parrySesDuzeyi = 1.0f;
 
-        [Header("ÖZEL VURUŞ SESLERİ")]
         public AudioClip kılıcVurmaSesi;   
         [Range(0, 1)] public float kılıcVurmaSesDuzeyi = 1.0f;
 
@@ -71,7 +57,6 @@ public class SesYonetici : MonoBehaviour
         public AudioClip kalkanVurmaSesi;  
         [Range(0, 1)] public float kalkanVurmaSesDuzeyi = 1.0f;
     }
-    // --- SINIF TANIMLAMALARI BİTİŞ ---
 
     [Header("KATEGORİLER")]
     public OrtamSesleri ortam;
@@ -97,7 +82,7 @@ public class SesYonetici : MonoBehaviour
         }
     }
 
-    // Geçici ses oluşturucu
+    // Geçici 3D ses oluşturucu
     public void SesCal(AudioClip klip, Vector3 pozisyon, float hacim = 1.0f, float maxMesafe = 20f)
     {
         if (klip == null) return;
@@ -108,7 +93,7 @@ public class SesYonetici : MonoBehaviour
         AudioSource source = sesObjesi.AddComponent<AudioSource>();
         source.clip = klip;
         source.volume = hacim;
-        source.spatialBlend = 1.0f; // 3D Ses
+        source.spatialBlend = 1.0f; 
         source.minDistance = 1.0f;
         source.maxDistance = maxMesafe;
         source.rolloffMode = AudioRolloffMode.Linear;
@@ -118,10 +103,8 @@ public class SesYonetici : MonoBehaviour
     }
 
     // --- FONKSİYONLAR ---
-
     public void SallamaSesiVer(Vector3 pos) => SesCal(efekt.silahSallamaSesi, pos, efekt.sallamaSesDuzeyi, 15f);
     public void ParrySesiVer(Vector3 pos) => SesCal(efekt.parrySesi, pos, efekt.parrySesDuzeyi, 20f);
-    
     public void DusmanKesifSesiVer(Vector3 pos) => SesCal(dusman.kesifSesi, pos, dusman.sesDuzeyi, 25f);
     public void DusmanZaferSesiVer(Vector3 pos) => SesCal(dusman.zaferBagirmasi, pos, dusman.sesDuzeyi, 25f);
     public void DusmanOlumSesiVer(Vector3 pos) => SesCal(dusman.olumSesi, pos, dusman.sesDuzeyi, 20f);
