@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\General\Scripts\BloodDecalHandler.cs" />
+    <Compile Include="Assets\General\Scripts\SilahHasar.cs" />
     <Compile Include="Assets\General\Scripts\PlayerController.cs" />
     <Compile Include="Assets\General\Scripts\EnemyAI.cs" />
     <Compile Include="Assets\General\Scripts\TPSCamera.cs" />

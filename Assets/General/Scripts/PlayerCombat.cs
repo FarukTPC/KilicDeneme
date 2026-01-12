@@ -4,20 +4,20 @@ using System.Collections;
 
 public class PlayerCombat : MonoBehaviour
 {
+    // Yönler
     public enum SaldiriYonu { Yukari = 0, Sag = 1, Sol = 2 }
+    
+    // Silah Tipi Seçimi (YENİ EKLENDİ)
+    public enum SilahTipi { Kilic, Tekme, Kalkan }
 
     // --- AYAR GRUPLARI ---
 
     [System.Serializable]
     public class SavasAyarlari
     {
-        [Tooltip("Savaş modu (CTRL tuşu) şu an açık mı?")]
         public bool savasModunda = false;
-        [Tooltip("Etraftaki düşmanları otomatik kilitlenme (Lock-On) menzili.")]
         public float kilitlenmeMenzili = 10f;
-        [Tooltip("Karakterin kilitlendiği düşmana dönme hızı.")]
         public float donusHizi = 10f;
-        [Tooltip("Erken tıklamaları ne kadar süre hafızada tutsun?")]
         public float girdiTamponSuresi = 0.5f; 
     }
 
@@ -25,9 +25,7 @@ public class PlayerCombat : MonoBehaviour
     public class YonAyarlari
     {
         public SaldiriYonu mevcutYon = SaldiriYonu.Sol;
-        [Tooltip("Farenin sağ/sol/yukarı hareketini algılama hassasiyeti (Ölü bölge).")]
         public float fareHassasiyeti = 0.1f;
-        [Tooltip("Yukarı saldırının algılanması için dikey hareketin ne kadar baskın olması gerektiğini belirler.")]
         public float yukariZorlukCarpani = 1.5f; 
     }
 
@@ -59,10 +57,14 @@ public class PlayerCombat : MonoBehaviour
     [System.Serializable]
     public class Referanslar
     {
-        public Transform saldiriNoktasi;
-        public float saldiriCapi = 1.0f;
-        public LayerMask dusmanKatmani;
-        public GameObject vurusEfekti;
+        // --- BURASI DÜZELTİLDİ: ARTIK HEPSİ BURADA ---
+        [Header("SİLAH HİTBOX REFERANSLARI")]
+        public SilahHasar kilicScripti;  // Kılıç scriptini buraya at
+        public SilahHasar tekmeScripti;  // Sağ Ayak scriptini buraya at
+        public SilahHasar kalkanScripti; // Kalkan scriptini buraya at
+        
+        [Header("DİĞER")]
+        public LayerMask dusmanKatmani; 
         public TPSCamera kameraScripti; 
         
         [Header("SESLER")]
@@ -84,10 +86,7 @@ public class PlayerCombat : MonoBehaviour
         public string animatorTetikleyici;    
         
         [Header("ZAMANLAMALAR")]
-        [Tooltip("Animasyonun (meşguliyetin) süresi. Bu süre boyunca başka hareket yapılamaz.")]
         public float animasyonSuresi; 
-        
-        [Tooltip("Bu yeteneğin tekrar kullanılabilmesi için geçmesi gereken süre (Cooldown).")]
         public float cooldown; 
 
         [HideInInspector] public float sonrakiKullanimZamani;
@@ -99,6 +98,10 @@ public class PlayerCombat : MonoBehaviour
         public float geriItmeGucu;     
         public float geriItmeSuresi;  
         public AudioClip yetenekSesi; 
+
+        // --- YENİ: Script sürüklemek yerine listeden seçiyoruz ---
+        [Header("HANGİ UZUV KULLANILACAK?")]
+        public SilahTipi kullanilacakSilah; 
     }
 
     [Header("SAVAŞ AYARLARI")] public SavasAyarlari savas;
@@ -132,29 +135,39 @@ public class PlayerCombat : MonoBehaviour
         _karakterKontrol = GetComponent<CharacterController>();
         _oyuncuHareketScripti = GetComponent<PlayerController>();
 
-        if (!referanslar.sesKaynagi) referanslar.sesKaynagi = gameObject.AddComponent<AudioSource>();
+        if (!referanslar.sesKaynagi) 
+        {
+            referanslar.sesKaynagi = gameObject.AddComponent<AudioSource>();
+        }
+
         mevcutCan = durum.maksimumCan;
         
         baslangicPozisyonu = transform.position;
         baslangicRotasyonu = transform.rotation;
 
         if (referanslar.kameraScripti == null && Camera.main) 
+        {
             referanslar.kameraScripti = Camera.main.GetComponent<TPSCamera>();
+        }
     }
 
     private void Update()
     {
         if (durum.olduMu) return;
-        
-        // Burası çok önemli: Meşgulse (Stun, Özel Saldırı vb.) hiçbir input alma.
         if (durum.mesgulMu) return;
 
-        if (Input.GetKeyDown(KeyCode.LeftControl)) SavasModunuDegistir();
+        if (Input.GetKeyDown(KeyCode.LeftControl)) 
+        {
+            SavasModunuDegistir();
+        }
 
         if (savas.savasModunda)
         {
             HedefleriTara();
-            if (mevcutHedef != null) HedefeDon();
+            if (mevcutHedef != null) 
+            {
+                HedefeDon();
+            }
             FareYonunuBelirle(); 
         }
         else
@@ -166,7 +179,7 @@ public class PlayerCombat : MonoBehaviour
 
         GirdileriKontrolEt();
 
-        if (saldiriyorMu && Time.time > sonrakiSaldiriZamani + 1.0f)
+        if (saldiriyorMu && Time.time > sonrakiSaldiriZamani + 2.0f)
         {
             saldiriyorMu = false;
         }
@@ -196,6 +209,7 @@ public class PlayerCombat : MonoBehaviour
         Collider[] dusmanlar = Physics.OverlapSphere(transform.position, savas.kilitlenmeMenzili, referanslar.dusmanKatmani);
         float enKisaMesafe = Mathf.Infinity;
         Transform enYakin = null;
+        
         foreach (var dusman in dusmanlar)
         {
             float mesafe = Vector3.Distance(transform.position, dusman.transform.position);
@@ -210,10 +224,12 @@ public class PlayerCombat : MonoBehaviour
 
     private void HedefeDon()
     {
-        if(mevcutHedef == null) return;
+        if (mevcutHedef == null) return;
+
         Vector3 yonVektoru = (mevcutHedef.position - transform.position).normalized;
         yonVektoru.y = 0;
-        if(yonVektoru != Vector3.zero) 
+        
+        if (yonVektoru != Vector3.zero) 
         {
             Quaternion bakis = Quaternion.LookRotation(yonVektoru);
             transform.rotation = Quaternion.Slerp(transform.rotation, bakis, Time.deltaTime * savas.donusHizi);
@@ -236,8 +252,10 @@ public class PlayerCombat : MonoBehaviour
             yon.mevcutYon = x > 0 ? SaldiriYonu.Sag : SaldiriYonu.Sol;
         }
 
-        if(!saldiriyorMu)
+        if (!saldiriyorMu)
+        {
             _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
+        }
     }
 
     private void GirdileriKontrolEt()
@@ -275,7 +293,7 @@ public class PlayerCombat : MonoBehaviour
         bool basiliTutuyor = Input.GetMouseButton(0);
         bool saldiriHazir = Time.time >= sonrakiSaldiriZamani;
 
-        if ((tamponGecerli || basiliTutuyor) && saldiriHazir)
+        if ((tamponGecerli || basiliTutuyor) && saldiriHazir && !saldiriyorMu)
         {
             SaldiriYap();
             sonTiklamaZamani = -1f; 
@@ -284,75 +302,65 @@ public class PlayerCombat : MonoBehaviour
 
     public void HasarAl(int gelenHasar, Transform saldiran, int saldiriYonu, float itmeGucu, float itmeSuresi)
     {
-    if (durum.olduMu) return;
+        if (durum.olduMu) return;
 
-    if (blokluyorMu)
-    {
-        if ((int)yon.mevcutYon == saldiriYonu && saldiriYonu != 3) 
+        if (blokluyorMu)
         {
-            _animator.SetTrigger("SavusturmaBasarili"); 
-            if(referanslar.sesKaynagi && savusturma.basariSesi) 
+            if ((int)yon.mevcutYon == saldiriYonu && saldiriYonu != 3) 
             {
-                referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
+                _animator.SetTrigger("SavusturmaBasarili"); 
+                
+                if (referanslar.sesKaynagi && savusturma.basariSesi) 
+                {
+                    referanslar.sesKaynagi.PlayOneShot(savusturma.basariSesi);
+                }
+
+                SarsintiTetikle();
+                
+                EnemyAI dusmanScripti = saldiran.GetComponent<EnemyAI>();
+                if (dusmanScripti) 
+                {
+                    dusmanScripti.Sersemle(savusturma.sersemletmeSuresi);
+                }
+                return; 
             }
-            SarsintiTetikle();
-            
-            EnemyAI dusmanScripti = saldiran.GetComponent<EnemyAI>();
-            if(dusmanScripti) 
+        }
+
+        mevcutCan -= gelenHasar;
+        
+        if (saldiriYonu != 3)
+        {
+            if (referanslar.sesKaynagi && referanslar.isabetSesi) 
             {
-                dusmanScripti.Sersemle(savusturma.sersemletmeSuresi);
+                referanslar.sesKaynagi.PlayOneShot(referanslar.isabetSesi);
             }
+        }
+        
+        SarsintiTetikle();
+        
+        if (mevcutCan <= 0)
+        {
+            Ol(saldiriYonu);
             return; 
         }
-    }
-
-    mevcutCan -= gelenHasar;
-    
-    // Kan Efekti
-    if(referanslar.vurusEfekti) 
-    {
-        Vector3 vurusNoktasi = transform.position + Vector3.up;
-        Vector3 kanYonu = (saldiran.position - transform.position).normalized;
-        kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
-
-        GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(-kanYonu));
-        Destroy(efekt, 2.0f);
-    }
-
-    // --- SES DÜZELTMESİ BURADA ---
-    // Sadece normal saldırılarda (kılıç) isabet sesi çal.
-    if (saldiriYonu != 3)
-    {
-        if(referanslar.sesKaynagi && referanslar.isabetSesi) 
+        
+        if (saldiran && itmeGucu > 0) 
         {
-            referanslar.sesKaynagi.PlayOneShot(referanslar.isabetSesi);
+            StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
+        }
+        
+        if (!saldiriyorMu && !durum.mesgulMu) 
+        {
+            _animator.SetTrigger("Hasar"); 
         }
     }
-    // ----------------------------
-    
-    SarsintiTetikle();
-    
-    if (mevcutCan <= 0)
-    {
-        Ol(saldiriYonu);
-        return; 
-    }
-    
-    if(saldiran && itmeGucu > 0) 
-    {
-        StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
-    }
-    
-    if (!saldiriyorMu && !durum.mesgulMu) 
-    {
-        _animator.SetTrigger("Hasar"); 
-    }
-}
 
     public void SarsintiTetikle()
     {
-        if(referanslar.kameraScripti)
+        if (referanslar.kameraScripti)
+        {
             referanslar.kameraScripti.KamerayiSalla(referanslar.sarsintiSuresi, referanslar.sarsintiSiddeti);
+        }
     }
 
     public void Sersemle(float sure)
@@ -361,50 +369,59 @@ public class PlayerCombat : MonoBehaviour
         StartCoroutine(SersemlemeSureci(sure));
     }
 
-    // --- STUN HAREKET FIX ---
     private IEnumerator SersemlemeSureci(float sure)
     {
-        // 1. Önce kilitleri vur
         durum.mesgulMu = true; 
         saldiriyorMu = false;
         blokluyorMu = false;
         _animator.SetBool("Blokluyor", false);
 
-        // 2. Animasyonu tetikle
         _animator.SetTrigger("Sersemleme"); 
         
-        // 3. Animasyonun devreye girmesi için çok kısa bekle (0.2sn)
-        // Bu süre içinde Animator State değişmiş olur.
         yield return new WaitForSeconds(0.2f);
 
-        // 4. ŞİMDİ HESAPLAMA YAP:
-        // O an oynayan animasyonun (Stun animasyonu) uzunluğunu al.
         float animasyonUzunlugu = _animator.GetCurrentAnimatorStateInfo(0).length;
-
-        // Bize gelen stun süresi (örn: 2sn) ile animasyon süresini (örn: 2.5sn) kıyasla.
-        // HANGİSİ BÜYÜKSE ONU KULLAN.
-        // Böylece animasyon bitmeden karakter ayağa kalkıp kaymaz.
         float beklemeSuresi = Mathf.Max(sure, animasyonUzunlugu);
 
-        // İlk baştaki 0.2 saniyelik beklemeyi düşerek kalanı bekle.
         yield return new WaitForSeconds(beklemeSuresi - 0.2f);
 
-        // 5. Kilitleri aç
         durum.mesgulMu = false;
     }
 
     private void SaldiriYap() 
     { 
         saldiriyorMu = true; 
-        sonrakiSaldiriZamani = Time.time + saldiri.beklemeSuresi; 
+        
+        sonrakiSaldiriZamani = Time.time + 2.0f; 
         
         _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
         _animator.SetTrigger("Saldiri"); 
         
-        if (referanslar.sesKaynagi && referanslar.sallamaSesi) referanslar.sesKaynagi.PlayOneShot(referanslar.sallamaSesi); 
+        if (referanslar.sesKaynagi && referanslar.sallamaSesi) 
+        {
+            referanslar.sesKaynagi.PlayOneShot(referanslar.sallamaSesi);
+        }
+        
         StartCoroutine(AtilmaSureci()); 
-        StartCoroutine(SaldiriDurumuSifirla(saldiri.beklemeSuresi)); 
-        StartCoroutine(HasarKontrolu(saldiri.hasar, false, 0, 0, 0)); 
+        
+        // Normal saldırıda her zaman Kılıç Scriptini kullan
+        StartCoroutine(HitboxYonetimi(referanslar.kilicScripti, saldiri.hasar, false, 0, 0, 0));
+        
+        StartCoroutine(SaldiriSuresiYonetimi());
+    }
+
+    private IEnumerator SaldiriSuresiYonetimi()
+    {
+        yield return new WaitForSeconds(0.1f);
+
+        float animasyonSuresi = _animator.GetCurrentAnimatorStateInfo(0).length;
+        float gercekBekleme = Mathf.Max(animasyonSuresi, saldiri.beklemeSuresi);
+
+        sonrakiSaldiriZamani = Time.time + (gercekBekleme - 0.1f);
+
+        yield return new WaitForSeconds(gercekBekleme - 0.1f);
+        
+        saldiriyorMu = false;
     }
 
     private IEnumerator OzelYetenekYap(int yetenekIndex) 
@@ -418,11 +435,28 @@ public class PlayerCombat : MonoBehaviour
         durum.mesgulMu = true; 
         _animator.SetTrigger(yetenek.animatorTetikleyici); 
         
-        if(referanslar.sesKaynagi && yetenek.yetenekSesi) referanslar.sesKaynagi.PlayOneShot(yetenek.yetenekSesi); 
+        if (referanslar.sesKaynagi && yetenek.yetenekSesi) 
+        {
+            referanslar.sesKaynagi.PlayOneShot(yetenek.yetenekSesi);
+        }
         
         StartCoroutine(SaldiriDurumuSifirla(yetenek.animasyonSuresi)); 
         
-        yield return StartCoroutine(HasarKontrolu(yetenek.hasar, yetenek.sersemletirMi, yetenek.sersemletmeSuresi, yetenek.geriItmeGucu, yetenek.geriItmeSuresi, true)); 
+        // --- DÜZELTİLEN KISIM: SİLAH SEÇİMİ ---
+        // Seçtiğin Enum değerine göre hangi scripti kullanacağını belirliyoruz.
+        SilahHasar secilenSilah = referanslar.kilicScripti; // Varsayılan Kılıç
+
+        if (yetenek.kullanilacakSilah == SilahTipi.Tekme)
+        {
+            secilenSilah = referanslar.tekmeScripti;
+        }
+        else if (yetenek.kullanilacakSilah == SilahTipi.Kalkan)
+        {
+            secilenSilah = referanslar.kalkanScripti;
+        }
+
+        // Seçilen silahı hitbox yönetimine gönder
+        yield return StartCoroutine(HitboxYonetimi(secilenSilah, yetenek.hasar, yetenek.sersemletirMi, yetenek.sersemletmeSuresi, yetenek.geriItmeGucu, yetenek.geriItmeSuresi, true)); 
         
         durum.mesgulMu = false; 
     }
@@ -430,7 +464,7 @@ public class PlayerCombat : MonoBehaviour
     private IEnumerator AtilmaSureci() 
     { 
         float zamanlayici = 0; 
-        while(zamanlayici < saldiri.atilmaSuresi) 
+        while (zamanlayici < saldiri.atilmaSuresi) 
         { 
             _karakterKontrol.Move(transform.forward * saldiri.atilmaGucu * Time.deltaTime); 
             zamanlayici += Time.deltaTime; 
@@ -438,32 +472,20 @@ public class PlayerCombat : MonoBehaviour
         } 
     }
 
-    private IEnumerator HasarKontrolu(int hasarMiktari, bool sersemlet, float sersSure, float itmeGucu, float itmeSuresi, bool ozelMi = false) 
+    private IEnumerator HitboxYonetimi(SilahHasar silah, int hasar, bool sersemlet, float sersSure, float itme, float itmeSure, bool ozelMi = false) 
     { 
         yield return new WaitForSeconds(0.2f); 
-        Collider[] carpanlar = Physics.OverlapSphere(referanslar.saldiriNoktasi.position, referanslar.saldiriCapi, referanslar.dusmanKatmani); 
-        foreach(var carpan in carpanlar) 
-        { 
-            EnemyAI dusman = carpan.GetComponent<EnemyAI>(); 
-            if(dusman) 
-            { 
-                Vector3 vurusNoktasi = carpan.ClosestPoint(referanslar.saldiriNoktasi.position);
-                Vector3 kanYonu = (dusman.transform.position - transform.position).normalized;
-                kanYonu += new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.2f, 0.5f), Random.Range(-0.5f, 0.5f)); 
+        
+        if (silah != null)
+        {
+            int saldiriYonuInt = ozelMi ? 3 : (int)yon.mevcutYon;
 
-                if(referanslar.vurusEfekti) 
-                {
-                    GameObject efekt = Instantiate(referanslar.vurusEfekti, vurusNoktasi, Quaternion.LookRotation(kanYonu));
-                    float rBoyut = Random.Range(0.8f, 1.2f);
-                    efekt.transform.localScale = Vector3.one * rBoyut;
-                    Destroy(efekt, 2.0f);
-                }
-
-                int saldiriYonuInt = ozelMi ? 3 : (int)yon.mevcutYon; 
-                dusman.HasarAl(hasarMiktari, transform, saldiriYonuInt, itmeGucu, itmeSuresi); 
-                if(sersemlet) dusman.Sersemle(sersSure); 
-            } 
-        } 
+            silah.VurusaHazirla(hasar, sersemlet ? sersSure : 0, itme, transform, saldiriYonuInt);
+            
+            yield return new WaitForSeconds(0.4f);
+            
+            silah.VurusuBitir();
+        }
     }
 
     private void Ol(int oldurenYon) 
@@ -474,7 +496,10 @@ public class PlayerCombat : MonoBehaviour
         savas.savasModunda = false;
         _animator.SetBool("SavasModu", false);
 
-        if (_oyuncuHareketScripti) _oyuncuHareketScripti.enabled = false;
+        if (_oyuncuHareketScripti) 
+        {
+            _oyuncuHareketScripti.enabled = false;
+        }
         
         if (oldurenYon == 3) oldurenYon = 1;
 
@@ -502,21 +527,35 @@ public class PlayerCombat : MonoBehaviour
         _animator.Rebind(); 
         _animator.Update(0f);
 
-        if (_oyuncuHareketScripti) _oyuncuHareketScripti.enabled = true;
+        if (_oyuncuHareketScripti) 
+        {
+            _oyuncuHareketScripti.enabled = true;
+        }
     }
 
-    private IEnumerator SaldiriDurumuSifirla(float sure) { yield return new WaitForSeconds(sure); saldiriyorMu = false; }
+    private IEnumerator SaldiriDurumuSifirla(float sure) 
+    { 
+        yield return new WaitForSeconds(sure); 
+        saldiriyorMu = false; 
+    }
     
     private IEnumerator GeriTepme(Transform itenKisi, float guc, float sure) 
     { 
         float t = 0; 
         Vector3 yon = (transform.position - itenKisi.position).normalized; 
-        yon.y=0; 
-        while(t<sure) 
+        yon.y = 0; 
+        
+        while (t < sure) 
         { 
-            if(_karakterKontrol) _karakterKontrol.Move(yon*guc*Time.deltaTime); 
-            else transform.position += yon*guc*Time.deltaTime; 
-            t+=Time.deltaTime; 
+            if (_karakterKontrol) 
+            {
+                _karakterKontrol.Move(yon * guc * Time.deltaTime); 
+            }
+            else 
+            {
+                transform.position += yon * guc * Time.deltaTime; 
+            }
+            t += Time.deltaTime; 
             yield return null; 
         } 
     }
