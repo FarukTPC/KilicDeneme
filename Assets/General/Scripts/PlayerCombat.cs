@@ -4,8 +4,8 @@ using System.Collections;
 
 public class PlayerCombat : MonoBehaviour
 {
-    public enum SaldiriYonu { Yukari = 0, Sag = 1, Sol = 2 }
     public enum SilahTipi { Kilic, Tekme, Kalkan }
+    public enum SaldiriYonu { Yukari = 0, Sag = 1, Sol = 2 }
 
     [System.Serializable]
     public class SavasAyarlari
@@ -288,7 +288,8 @@ public class PlayerCombat : MonoBehaviour
             {
                 _animator.SetTrigger("SavusturmaBasarili"); 
                 
-                if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiCal(transform.position);
+                // DÜZELTME: ParrySesiCal -> ParrySesiVer
+                if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiVer(transform.position);
 
                 SarsintiTetikle();
                 
@@ -366,8 +367,8 @@ public class PlayerCombat : MonoBehaviour
         _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
         _animator.SetTrigger("Saldiri"); 
         
-        // GÜNCELLEME: Sallama Sesi (Whoosh)
-        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiCal(transform.position);
+        // DÜZELTME: SallamaSesiCal -> SallamaSesiVer
+        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiVer(transform.position);
         
         StartCoroutine(AtilmaSureci()); 
         StartCoroutine(HitboxYonetimi(referanslar.kilicScripti, saldiri.hasar, false, 0, 0, 0));
@@ -399,8 +400,8 @@ public class PlayerCombat : MonoBehaviour
         durum.mesgulMu = true; 
         _animator.SetTrigger(yetenek.animatorTetikleyici); 
         
-        // GÜNCELLEME: Özel yetenekte de sallama sesi
-        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiCal(transform.position);
+        // DÜZELTME: SallamaSesiCal -> SallamaSesiVer
+        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiVer(transform.position);
         
         StartCoroutine(SaldiriDurumuSifirla(yetenek.animasyonSuresi)); 
         
@@ -445,7 +446,8 @@ public class PlayerCombat : MonoBehaviour
         savas.savasModunda = false;
         _animator.SetBool("SavasModu", false);
 
-        if(SesYonetici.Instance != null) SesYonetici.Instance.OyuncuOlumCal(transform.position);
+        // DÜZELTME: OyuncuOlumCal -> OyuncuOlumSesiVer
+        if(SesYonetici.Instance != null) SesYonetici.Instance.OyuncuOlumSesiVer(transform.position);
 
         if (_oyuncuHareketScripti) 
         {

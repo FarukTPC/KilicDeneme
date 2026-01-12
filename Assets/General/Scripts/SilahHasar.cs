@@ -91,7 +91,8 @@ public class SilahHasar : MonoBehaviour
         // B) Vuruş Sesi (Metal/Küt sesi - Türe göre)
         if (SesYonetici.Instance != null)
         {
-            SesYonetici.Instance.VurusSesiCal(transform.position, buSilahinTuru);
+            // DÜZELTME BURADA YAPILDI: Cal -> Ver
+            SesYonetici.Instance.VurusSesiVer(transform.position, buSilahinTuru);
         }
 
         // C) Hasar Verme & Hasar Sesi (Senkronize Çözüm)

@@ -5,6 +5,7 @@ public class SesYonetici : MonoBehaviour
 {
     public static SesYonetici Instance;
 
+    // Silah tiplerini ayırt etmek için Enum
     public enum SilahSesTuru 
     { 
         StandartKilic, 
@@ -22,27 +23,34 @@ public class SesYonetici : MonoBehaviour
     [System.Serializable]
     public class OyuncuSesleri
     {
-        [Header("Çoklu Sesler")]
-        [Tooltip("Buraya birden fazla hasar sesi ekleyebilirsin (Ah, Uh, Oof).")]
+        [Header("Hasar Sesleri (Array)")]
+        [Tooltip("Buraya birden fazla 'Ah/Uh' sesi ekle. Rastgele seçilecek.")]
         public AudioClip[] hasarAlmaSesleri; 
         
-        public AudioClip olum;
-        public AudioClip ayakSesiLoop; // Yürüme sesi (Loop modunda çalınacak)
+        public AudioClip olumSesi;
+        
+        [Tooltip("Oyuncunun yürürken çalacağı loop sesi.")]
+        public AudioClip ayakSesiLoop; 
+        
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
     [System.Serializable]
     public class DusmanSesleri
     {
-        [Tooltip("Düşman oyuncuyu ilk fark ettiğinde (Huh?) çıkaracağı ses.")]
+        [Tooltip("Düşman oyuncuyu ilk gördüğünde (Huh?) çıkaracağı ses.")]
         public AudioClip kesifSesi; 
         
         public AudioClip zaferBagirmasi;
         
-        [Tooltip("Buraya birden fazla hasar sesi ekleyebilirsin.")]
+        [Tooltip("Buraya birden fazla hasar sesi ekle.")]
         public AudioClip[] hasarAlmaSesleri;
         
-        public AudioClip olum;
+        public AudioClip olumSesi;
+        
+        [Tooltip("Düşmanın yürürken çalacağı loop sesi.")]
+        public AudioClip ayakSesiLoop; 
+
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
@@ -50,15 +58,14 @@ public class SesYonetici : MonoBehaviour
     public class EfektSesleri
     {
         [Header("GENEL")]
-        public AudioClip saldiriSallama; // Whoosh
+        public AudioClip silahSallamaSesi; // Whoosh
+        public AudioClip parrySesi;        // Savuşturma (Metal sesi)
 
-        [Header("VURUŞ (TEMAS)")]
-        public AudioClip standartVurus; 
-        public AudioClip tekmeVurusu;   
-        public AudioClip kalkanVurusu;  
+        [Header("ÖZEL VURUŞ SESLERİ")]
+        public AudioClip kılıcVurmaSesi;   // Kılıç ete değince
+        public AudioClip tekmeVurmaSesi;   // Tekme atınca (Küt)
+        public AudioClip kalkanVurmaSesi;  // Kalkan vurunca (Metal/Tok)
         
-        [Header("DİĞER")]
-        public AudioClip parryBasarili;
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
@@ -72,6 +79,7 @@ public class SesYonetici : MonoBehaviour
 
     private void Awake()
     {
+        // Singleton Kurulumu
         if (Instance == null)
         {
             Instance = this;
@@ -82,6 +90,7 @@ public class SesYonetici : MonoBehaviour
             return;
         }
 
+        // Müzik Kaynağı
         muzikKaynagi = gameObject.AddComponent<AudioSource>();
         muzikKaynagi.loop = true;
         
@@ -93,87 +102,117 @@ public class SesYonetici : MonoBehaviour
         }
     }
 
-    // Geçici ses objesi oluşturup çalar
-    public void SesCal(AudioClip klip, Vector3 pozisyon, float hacim = 1.0f)
+    /// <summary>
+    /// Belirtilen noktada geçici bir ses objesi oluşturur.
+    /// MaxMesafe: Sesin ne kadar uzaktan duyulacağını belirler (Radius).
+    /// </summary>
+    public void SesCal(AudioClip klip, Vector3 pozisyon, float hacim = 1.0f, float maxMesafe = 20f)
     {
         if (klip == null) return;
-        AudioSource.PlayClipAtPoint(klip, pozisyon, hacim);
+
+        // Geçici obje oluştur
+        GameObject sesObjesi = new GameObject("GeçiciSes_" + klip.name);
+        sesObjesi.transform.position = pozisyon;
+
+        // AudioSource ekle ve ayarla
+        AudioSource source = sesObjesi.AddComponent<AudioSource>();
+        source.clip = klip;
+        source.volume = hacim;
+        source.spatialBlend = 1.0f; // Tamamen 3D
+        source.rolloffMode = AudioRolloffMode.Linear; // Mesafeye göre düzgün azalsın
+        source.minDistance = 1.0f;
+        source.maxDistance = maxMesafe; // RADIUS AYARI
+        
+        source.Play();
+
+        // Ses bitince objeyi yok et
+        Destroy(sesObjesi, klip.length + 0.1f);
     }
 
     // --- GENEL EFEKTLER ---
-    public void SallamaSesiCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void SallamaSesiVer(Vector3 pos)
     {
-        SesCal(efekt.saldiriSallama, pos, efekt.sesDuzeyi);
+        SesCal(efekt.silahSallamaSesi, pos, efekt.sesDuzeyi, 15f);
     }
 
-    public void ParrySesiCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void ParrySesiVer(Vector3 pos)
     {
-        SesCal(efekt.parryBasarili, pos, efekt.sesDuzeyi);
+        SesCal(efekt.parrySesi, pos, efekt.sesDuzeyi, 20f);
     }
 
     // --- OYUNCU SESLERİ ---
-    public void OyuncuHasarCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void OyuncuHasarCal(Vector3 pos) // Bunu OyuncuHasarSesiVer yapabiliriz ama SilahHasar.cs bunu çağırıyor mu kontrol etmek lazım. Genelde kodlarda bu isim kalmıştı.
     {
-        // Rastgele bir hasar sesi seç
+        // Rastgele seçim
         if (oyuncu.hasarAlmaSesleri != null && oyuncu.hasarAlmaSesleri.Length > 0)
         {
             int rastgeleIndex = Random.Range(0, oyuncu.hasarAlmaSesleri.Length);
-            SesCal(oyuncu.hasarAlmaSesleri[rastgeleIndex], pos, oyuncu.sesDuzeyi);
+            SesCal(oyuncu.hasarAlmaSesleri[rastgeleIndex], pos, oyuncu.sesDuzeyi, 15f);
         }
     }
     
-    public void OyuncuOlumCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void OyuncuOlumSesiVer(Vector3 pos)
     {
-        SesCal(oyuncu.olum, pos, oyuncu.sesDuzeyi);
+        SesCal(oyuncu.olumSesi, pos, oyuncu.sesDuzeyi, 20f);
     }
 
     // --- DÜŞMAN SESLERİ ---
-    public void DusmanKesifCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void DusmanKesifSesiVer(Vector3 pos)
     {
-        SesCal(dusman.kesifSesi, pos, dusman.sesDuzeyi);
+        SesCal(dusman.kesifSesi, pos, dusman.sesDuzeyi, 25f);
     }
 
-    public void DusmanZaferCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void DusmanZaferSesiVer(Vector3 pos)
     {
-        SesCal(dusman.zaferBagirmasi, pos, dusman.sesDuzeyi);
+        SesCal(dusman.zaferBagirmasi, pos, dusman.sesDuzeyi, 25f);
     }
 
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
     public void DusmanHasarCal(Vector3 pos)
     {
-        // Rastgele bir hasar sesi seç
+        // Rastgele seçim
         if (dusman.hasarAlmaSesleri != null && dusman.hasarAlmaSesleri.Length > 0)
         {
             int rastgeleIndex = Random.Range(0, dusman.hasarAlmaSesleri.Length);
-            SesCal(dusman.hasarAlmaSesleri[rastgeleIndex], pos, dusman.sesDuzeyi);
+            SesCal(dusman.hasarAlmaSesleri[rastgeleIndex], pos, dusman.sesDuzeyi, 20f);
         }
     }
 
-    public void DusmanOlumCal(Vector3 pos)
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void DusmanOlumSesiVer(Vector3 pos)
     {
-        SesCal(dusman.olum, pos, dusman.sesDuzeyi);
+        SesCal(dusman.olumSesi, pos, dusman.sesDuzeyi, 20f);
     }
 
-    // --- SİLAH VURUŞ SESİ ---
-    public void VurusSesiCal(Vector3 pos, SilahSesTuru tur)
+    // --- SİLAH TÜRÜNE GÖRE VURUŞ SESİ ---
+    // SilahHasar scripti burayı çağırır.
+    // İSİM DEĞİŞİKLİĞİ: Cal -> Ver
+    public void VurusSesiVer(Vector3 pos, SilahSesTuru tur)
     {
         AudioClip calinacakKlip = null;
 
         switch (tur)
         {
             case SilahSesTuru.StandartKilic:
-                calinacakKlip = efekt.standartVurus;
+                calinacakKlip = efekt.kılıcVurmaSesi;
                 break;
             case SilahSesTuru.Tekme:
-                calinacakKlip = efekt.tekmeVurusu;
+                calinacakKlip = efekt.tekmeVurmaSesi;
                 break;
             case SilahSesTuru.Kalkan:
-                calinacakKlip = efekt.kalkanVurusu;
+                calinacakKlip = efekt.kalkanVurmaSesi;
                 break;
         }
 
         if (calinacakKlip != null)
         {
-            SesCal(calinacakKlip, pos, efekt.sesDuzeyi);
+            SesCal(calinacakKlip, pos, efekt.sesDuzeyi, 20f);
         }
     }
 }

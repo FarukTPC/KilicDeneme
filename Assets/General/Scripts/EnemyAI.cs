@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using System.Collections;
 
+[RequireComponent(typeof(AudioSource))]
 public class EnemyAI : MonoBehaviour
 {
     public enum SaldiriYonu { Yukari = 0, Sag = 1, Sol = 2 }
@@ -83,6 +84,10 @@ public class EnemyAI : MonoBehaviour
     [Header("SAĞLIK DURUMU")] public SaglikAyarlari saglik;
     [Header("YAPAY ZEKA (AI)")] public YapayZekaAyarlari yapayZeka;
     [Header("REFERANSLAR")] public Referanslar referanslar;
+    
+    [Header("SES VE DUYULMA")]
+    [Tooltip("Düşmanın ayak sesinin duyulacağı maksimum mesafe.")]
+    public float sesDuyulmaMesafe = 20f;
 
     private int mevcutCan;
     private bool saldiriyorMu = false;
@@ -90,9 +95,10 @@ public class EnemyAI : MonoBehaviour
     private bool zaferKutlamasiYaptiMi = false;
     private bool taktikselBeklemeAktif = false;
     
-    // YENİ: Keşif Sesi Kontrolü
+    // Keşif Sesi Kontrolü
     private bool oyuncuyuGordu = false;
-    private bool oncekiGormeDurumu = false; // Bir önceki karede görüyor muydu?
+    private bool dahaOnceGorduMu = false; 
+    private bool oncekiGormeDurumu = false;
 
     private SaldiriYonu mevcutYon = SaldiriYonu.Sag;
     private float sonrakiEylemZamani;
@@ -102,11 +108,21 @@ public class EnemyAI : MonoBehaviour
     private PlayerCombat oyuncuScripti; 
     private NavMeshAgent ajan;
     private Animator animator;
+    
+    private AudioSource enemyAudioSource;
 
     private void Awake()
     {
         ajan = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
+
+        enemyAudioSource = GetComponent<AudioSource>();
+        enemyAudioSource.loop = true;
+        enemyAudioSource.playOnAwake = false;
+        enemyAudioSource.spatialBlend = 1.0f; 
+        enemyAudioSource.rolloffMode = AudioRolloffMode.Linear;
+        enemyAudioSource.minDistance = 1.0f;
+        enemyAudioSource.maxDistance = sesDuyulmaMesafe; 
 
         mevcutCan = saglik.maksimumCan;
         
@@ -125,6 +141,14 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        if (SesYonetici.Instance != null && SesYonetici.Instance.dusman.ayakSesiLoop != null)
+        {
+            enemyAudioSource.clip = SesYonetici.Instance.dusman.ayakSesiLoop;
+        }
+    }
+
     private void Update()
     {
         if (saglik.olduMu || saglik.sersemlediMi) 
@@ -139,7 +163,21 @@ public class EnemyAI : MonoBehaviour
             {
                 animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
             }
+            if(enemyAudioSource.isPlaying) enemyAudioSource.Stop();
             return; 
+        }
+
+        // --- AYAK SESİ ---
+        if (ajan.velocity.magnitude > 0.1f && !ajan.isStopped)
+        {
+            if (!enemyAudioSource.isPlaying && enemyAudioSource.clip != null)
+            {
+                enemyAudioSource.Play();
+            }
+        }
+        else
+        {
+            if (enemyAudioSource.isPlaying) enemyAudioSource.Stop();
         }
 
         if (oyuncuScripti != null && oyuncuScripti.durum.olduMu)
@@ -170,23 +208,21 @@ public class EnemyAI : MonoBehaviour
             { 
                 oyuncuyuGordu = false; 
                 taktikselBeklemeAktif = false; 
-                // YENİ: Gözden kaybolunca tekrar keşif sesi çıkarabilsin diye sıfırlayabilirsin
-                // ama bir kez "huh" dedirtmek istiyorsan burayı elleme.
-                // Resetlemek istersen: oncekiGormeDurumu = false;
+                dahaOnceGorduMu = false;
             } 
         }
 
-        // --- YENİ: KEŞİF SESİ MANTIĞI ---
-        // Eğer şu an görüyorsa VE bir önceki karede görmüyorsa (Yeni fark etti)
+        // --- KEŞİF SESİ ---
         if (oyuncuyuGordu && !oncekiGormeDurumu)
         {
-            if(SesYonetici.Instance != null) 
+            // Buradaki isim hatasını SesYonetici.cs'de düzelttik
+            if(SesYonetici.Instance != null && !dahaOnceGorduMu) 
             {
-                SesYonetici.Instance.DusmanKesifCal(transform.position);
+                SesYonetici.Instance.DusmanKesifSesiVer(transform.position);
+                dahaOnceGorduMu = true;
             }
         }
-        oncekiGormeDurumu = oyuncuyuGordu; // Durumu güncelle
-        // --------------------------------
+        oncekiGormeDurumu = oyuncuyuGordu;
 
         if (oyuncuyuGordu)
         {
@@ -300,7 +336,8 @@ public class EnemyAI : MonoBehaviour
         BlokuBirak(); 
         animator.SetTrigger("Zafer"); 
         
-        if(SesYonetici.Instance != null) SesYonetici.Instance.DusmanZaferCal(transform.position);
+        // Buradaki isim hatasını SesYonetici.cs'de düzelttik
+        if(SesYonetici.Instance != null) SesYonetici.Instance.DusmanZaferSesiVer(transform.position);
 
         yield return new WaitForSeconds(4.0f); 
         
@@ -416,8 +453,8 @@ public class EnemyAI : MonoBehaviour
             saldiriYonuInt = (int)mevcutYon;
         }
 
-        // YENİ: Kılıç savurma (Whoosh) sesi
-        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiCal(transform.position);
+        // Buradaki isim hatasını SesYonetici.cs'de düzelttik
+        if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiVer(transform.position);
 
         yield return new WaitForSeconds(0.1f);
         float animasyonSuresi = animator.GetCurrentAnimatorStateInfo(0).length;
@@ -473,7 +510,8 @@ public class EnemyAI : MonoBehaviour
         {
             animator.SetTrigger("SavusturmaBasarili");
             
-            if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiCal(transform.position);
+            // Buradaki isim hatasını SesYonetici.cs'de düzelttik
+            if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiVer(transform.position);
 
             PlayerCombat pc = saldiran.GetComponent<PlayerCombat>();
             if (pc != null) 
@@ -484,8 +522,6 @@ public class EnemyAI : MonoBehaviour
         }
 
         mevcutCan -= dmg;
-        
-        // SES SİLİNDİ (SilahHasar.cs anında çalıyor artık)
         
         if (mevcutCan <= 0)
         {
@@ -517,7 +553,8 @@ public class EnemyAI : MonoBehaviour
         if (saglik.olduMu) return; 
         if (oldurenYon == 3) oldurenYon = 1; 
         
-        if(SesYonetici.Instance != null) SesYonetici.Instance.DusmanOlumCal(transform.position);
+        // Buradaki isim hatasını SesYonetici.cs'de düzelttik
+        if(SesYonetici.Instance != null) SesYonetici.Instance.DusmanOlumSesiVer(transform.position);
 
         StartCoroutine(OlumSureci(oldurenYon)); 
     }

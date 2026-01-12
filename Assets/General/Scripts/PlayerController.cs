@@ -12,6 +12,8 @@ public class PlayerController : MonoBehaviour
         public float donusYumusakligi = 0.1f;
         public float ziplamaGucu = 1.0f;
         public float yerCekimi = -9.81f;
+        
+        [Tooltip("Hız değişimlerinde animasyonun ne kadar yumuşak geçeceği.")]
         public float animasyonYumusatma = 0.15f; 
     }
 
@@ -34,7 +36,7 @@ public class PlayerController : MonoBehaviour
     private PlayerCombat savasScripti;
     private Animator animator;
     
-    // YENİ: Ayak sesi için kaynak
+    // Ayak sesi için kaynak
     private AudioSource ayakSesiKaynagi;
 
     private Vector3 hizVektoru;
@@ -47,21 +49,22 @@ public class PlayerController : MonoBehaviour
         savasScripti = GetComponent<PlayerCombat>();
         animator = GetComponent<Animator>();
 
-        // YENİ: Ses kaynağı ayarları
+        // Ses kaynağını ayarla
         ayakSesiKaynagi = GetComponent<AudioSource>();
         if (ayakSesiKaynagi == null) ayakSesiKaynagi = gameObject.AddComponent<AudioSource>();
         
-        ayakSesiKaynagi.loop = true; // Yürüdükçe sürekli çalsın
-        ayakSesiKaynagi.playOnAwake = false;
-        ayakSesiKaynagi.spatialBlend = 1.0f; // 3D Ses
+        ayakSesiKaynagi.loop = true; // Döngü açık
+        ayakSesiKaynagi.playOnAwake = false; // Başlangıçta sessiz
+        ayakSesiKaynagi.spatialBlend = 0.5f; // Player sesi hem 2D hem 3D karışık olsun (net duyulsun)
+        ayakSesiKaynagi.volume = 1.0f;
 
         if (referans.kameraTransform == null && Camera.main != null)
             referans.kameraTransform = Camera.main.transform;
     }
 
-    // YENİ: Sesi Manager'dan alıyoruz
     private void Start()
     {
+        // Sesi Manager'dan al ve yükle
         if (SesYonetici.Instance != null && SesYonetici.Instance.oyuncu.ayakSesiLoop != null)
         {
             ayakSesiKaynagi.clip = SesYonetici.Instance.oyuncu.ayakSesiLoop;
@@ -70,7 +73,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        // Stun veya ölüm durumunda sesi kes
+        // Stun veya ölüm durumunda
         if (savasScripti != null && (savasScripti.durum.olduMu || savasScripti.durum.mesgulMu))
         {
             animator.SetFloat("Hiz", 0f, hareket.animasyonYumusatma, Time.deltaTime);
@@ -99,7 +102,7 @@ public class PlayerController : MonoBehaviour
 
         float hedefAnimHizi = 0f; 
 
-        // 1. SAVAS MODU
+        // 1. SAVAŞ MODU HAREKETİ
         if (savasScripti.savas.savasModunda && savasScripti.mevcutHedef != null)
         {
             Vector3 dusmanaYon = (savasScripti.mevcutHedef.position - transform.position).normalized;
@@ -118,7 +121,7 @@ public class PlayerController : MonoBehaviour
 
             hedefAnimHizi = girisYonu.magnitude > 0.1f ? 1f : 0f;
         }
-        // 2. NORMAL MOD
+        // 2. NORMAL HAREKET
         else
         {
             if (girisYonu.magnitude >= 0.1f)
@@ -140,20 +143,19 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // --- YENİ: AYAK SESİ MANTIĞI ---
-        bool hareketEdiyor = girisYonu.magnitude > 0.1f;
+        // --- AYAK SESİ MANTIĞI ---
+        // Input var mı veya gerçek hız 0.1'den büyük mü?
+        bool hareketEdiyor = girisYonu.magnitude > 0.1f || kontrolcu.velocity.magnitude > 0.2f;
 
-        // Hareket ediyor VE yerdeyse çal
         if (hareketEdiyor && yerdeMi)
         {
             if (!ayakSesiKaynagi.isPlaying && ayakSesiKaynagi.clip != null)
             {
-                // Robotik sesi kırmak için hafif ton değişimi
+                // Robotik sesi engellemek için hafif ton değişimi
                 ayakSesiKaynagi.pitch = Random.Range(0.9f, 1.1f);
                 ayakSesiKaynagi.Play();
             }
         }
-        // Durduysa veya havadaysa sus
         else
         {
             if (ayakSesiKaynagi.isPlaying)
@@ -161,7 +163,7 @@ public class PlayerController : MonoBehaviour
                 ayakSesiKaynagi.Stop();
             }
         }
-        // -------------------------------
+        // -------------------------
 
         animator.SetFloat("Hiz", hedefAnimHizi, hareket.animasyonYumusatma, Time.deltaTime);
 
