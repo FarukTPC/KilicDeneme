@@ -22,22 +22,25 @@ public class SesYonetici : MonoBehaviour
     [System.Serializable]
     public class OyuncuSesleri
     {
-        // ARTIK TEK BİR SES DEĞİL, LİSTE:
-        public AudioClip[] hasarAlmaSesleri; // 3 Farklı ses buraya
+        [Header("Çoklu Sesler")]
+        [Tooltip("Buraya birden fazla hasar sesi ekleyebilirsin (Ah, Uh, Oof).")]
+        public AudioClip[] hasarAlmaSesleri; 
         
         public AudioClip olum;
-        public AudioClip ayakSesiLoop; // Buraya "Yürüme Sesi" gelecek (Loop/Tekrar moduna uygun)
+        public AudioClip ayakSesiLoop; // Yürüme sesi (Loop modunda çalınacak)
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
     [System.Serializable]
     public class DusmanSesleri
     {
-        public AudioClip saldiriBagirmasi;
+        [Tooltip("Düşman oyuncuyu ilk fark ettiğinde (Huh?) çıkaracağı ses.")]
+        public AudioClip kesifSesi; 
+        
         public AudioClip zaferBagirmasi;
         
-        // DÜŞMAN İÇİN DE LİSTE:
-        public AudioClip[] hasarAlmaSesleri; // 3 Farklı ses buraya
+        [Tooltip("Buraya birden fazla hasar sesi ekleyebilirsin.")]
+        public AudioClip[] hasarAlmaSesleri;
         
         public AudioClip olum;
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
@@ -46,10 +49,10 @@ public class SesYonetici : MonoBehaviour
     [System.Serializable]
     public class EfektSesleri
     {
-        [Header("GENEL EFEKTLER")]
-        public AudioClip saldiriSallama; 
+        [Header("GENEL")]
+        public AudioClip saldiriSallama; // Whoosh
 
-        [Header("VURUŞ (TEMAS) SESLERİ")]
+        [Header("VURUŞ (TEMAS)")]
         public AudioClip standartVurus; 
         public AudioClip tekmeVurusu;   
         public AudioClip kalkanVurusu;  
@@ -69,8 +72,15 @@ public class SesYonetici : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null) { Instance = this; }
-        else { Destroy(gameObject); return; }
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
 
         muzikKaynagi = gameObject.AddComponent<AudioSource>();
         muzikKaynagi.loop = true;
@@ -83,53 +93,87 @@ public class SesYonetici : MonoBehaviour
         }
     }
 
+    // Geçici ses objesi oluşturup çalar
     public void SesCal(AudioClip klip, Vector3 pozisyon, float hacim = 1.0f)
     {
         if (klip == null) return;
         AudioSource.PlayClipAtPoint(klip, pozisyon, hacim);
     }
 
-    public void SallamaSesiCal(Vector3 pos) => SesCal(efekt.saldiriSallama, pos, efekt.sesDuzeyi);
+    // --- GENEL EFEKTLER ---
+    public void SallamaSesiCal(Vector3 pos)
+    {
+        SesCal(efekt.saldiriSallama, pos, efekt.sesDuzeyi);
+    }
 
-    // --- YENİ: RASTGELE HASAR SESİ SEÇİCİ ---
+    public void ParrySesiCal(Vector3 pos)
+    {
+        SesCal(efekt.parryBasarili, pos, efekt.sesDuzeyi);
+    }
+
+    // --- OYUNCU SESLERİ ---
     public void OyuncuHasarCal(Vector3 pos)
     {
-        if (oyuncu.hasarAlmaSesleri.Length > 0)
+        // Rastgele bir hasar sesi seç
+        if (oyuncu.hasarAlmaSesleri != null && oyuncu.hasarAlmaSesleri.Length > 0)
         {
-            // Listeden rastgele bir tane seç
             int rastgeleIndex = Random.Range(0, oyuncu.hasarAlmaSesleri.Length);
             SesCal(oyuncu.hasarAlmaSesleri[rastgeleIndex], pos, oyuncu.sesDuzeyi);
         }
     }
     
-    public void OyuncuOlumCal(Vector3 pos) => SesCal(oyuncu.olum, pos, oyuncu.sesDuzeyi);
+    public void OyuncuOlumCal(Vector3 pos)
+    {
+        SesCal(oyuncu.olum, pos, oyuncu.sesDuzeyi);
+    }
 
-    public void DusmanSaldiriCal(Vector3 pos) => SesCal(dusman.saldiriBagirmasi, pos, dusman.sesDuzeyi);
-    public void DusmanZaferCal(Vector3 pos) => SesCal(dusman.zaferBagirmasi, pos, dusman.sesDuzeyi);
+    // --- DÜŞMAN SESLERİ ---
+    public void DusmanKesifCal(Vector3 pos)
+    {
+        SesCal(dusman.kesifSesi, pos, dusman.sesDuzeyi);
+    }
 
-    // --- YENİ: RASTGELE DÜŞMAN HASAR SESİ ---
+    public void DusmanZaferCal(Vector3 pos)
+    {
+        SesCal(dusman.zaferBagirmasi, pos, dusman.sesDuzeyi);
+    }
+
     public void DusmanHasarCal(Vector3 pos)
     {
-        if (dusman.hasarAlmaSesleri.Length > 0)
+        // Rastgele bir hasar sesi seç
+        if (dusman.hasarAlmaSesleri != null && dusman.hasarAlmaSesleri.Length > 0)
         {
             int rastgeleIndex = Random.Range(0, dusman.hasarAlmaSesleri.Length);
             SesCal(dusman.hasarAlmaSesleri[rastgeleIndex], pos, dusman.sesDuzeyi);
         }
     }
 
-    public void DusmanOlumCal(Vector3 pos) => SesCal(dusman.olum, pos, dusman.sesDuzeyi);
+    public void DusmanOlumCal(Vector3 pos)
+    {
+        SesCal(dusman.olum, pos, dusman.sesDuzeyi);
+    }
 
+    // --- SİLAH VURUŞ SESİ ---
     public void VurusSesiCal(Vector3 pos, SilahSesTuru tur)
     {
         AudioClip calinacakKlip = null;
+
         switch (tur)
         {
-            case SilahSesTuru.StandartKilic: calinacakKlip = efekt.standartVurus; break;
-            case SilahSesTuru.Tekme: calinacakKlip = efekt.tekmeVurusu; break;
-            case SilahSesTuru.Kalkan: calinacakKlip = efekt.kalkanVurusu; break;
+            case SilahSesTuru.StandartKilic:
+                calinacakKlip = efekt.standartVurus;
+                break;
+            case SilahSesTuru.Tekme:
+                calinacakKlip = efekt.tekmeVurusu;
+                break;
+            case SilahSesTuru.Kalkan:
+                calinacakKlip = efekt.kalkanVurusu;
+                break;
         }
-        if (calinacakKlip != null) SesCal(calinacakKlip, pos, efekt.sesDuzeyi);
-    }
 
-    public void ParrySesiCal(Vector3 pos) => SesCal(efekt.parryBasarili, pos, efekt.sesDuzeyi);
+        if (calinacakKlip != null)
+        {
+            SesCal(calinacakKlip, pos, efekt.sesDuzeyi);
+        }
+    }
 }

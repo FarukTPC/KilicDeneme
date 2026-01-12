@@ -1,36 +1,26 @@
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
+[RequireComponent(typeof(AudioSource))]
 public class PlayerController : MonoBehaviour
 {
     [System.Serializable]
     public class HareketAyarlari
     {
-        [Tooltip("Normal yürüme hızı.")]
         public float yurumeHizi = 2.0f;
-        [Tooltip("Shift tuşuna basınca ulaşılan koşma hızı.")]
         public float kosmaHizi = 5.0f;
-        [Tooltip("Karakterin dönme yumuşaklığı (Düşük = Hızlı döner).")]
         public float donusYumusakligi = 0.1f;
-        [Tooltip("Karakterin zıplama yüksekliği.")]
         public float ziplamaGucu = 1.0f;
-        [Tooltip("Yer çekimi kuvveti (Negatif olmalı, örn: -9.81).")]
         public float yerCekimi = -9.81f;
-        
-        [Tooltip("Dururken veya koşmaya başlarken animasyonun ne kadar yumuşak geçiş yapacağı. (0.1 = Hızlı, 0.3 = Ağır).")]
-        public float animasyonYumusatma = 0.15f; // YENİ AYAR
+        public float animasyonYumusatma = 0.15f; 
     }
 
     [System.Serializable]
     public class Referanslar
     {
-        [Tooltip("Ana kamera transformu (Otomatik bulunur).")]
         public Transform kameraTransform;
-        [Tooltip("Karakterin ayaklarının altındaki 'GroundCheck' objesi.")]
         public Transform zeminKontrol;
-        [Tooltip("Zemini algılama yarıçapı.")]
         public float zeminMesafe = 0.4f;
-        [Tooltip("Hangi katmanlar zemin (yer) olarak kabul edilecek?")]
         public LayerMask zeminKatmani;
     }
 
@@ -43,6 +33,9 @@ public class PlayerController : MonoBehaviour
     private CharacterController kontrolcu;
     private PlayerCombat savasScripti;
     private Animator animator;
+    
+    // YENİ: Ayak sesi için kaynak
+    private AudioSource ayakSesiKaynagi;
 
     private Vector3 hizVektoru;
     private bool yerdeMi;
@@ -54,17 +47,34 @@ public class PlayerController : MonoBehaviour
         savasScripti = GetComponent<PlayerCombat>();
         animator = GetComponent<Animator>();
 
+        // YENİ: Ses kaynağı ayarları
+        ayakSesiKaynagi = GetComponent<AudioSource>();
+        if (ayakSesiKaynagi == null) ayakSesiKaynagi = gameObject.AddComponent<AudioSource>();
+        
+        ayakSesiKaynagi.loop = true; // Yürüdükçe sürekli çalsın
+        ayakSesiKaynagi.playOnAwake = false;
+        ayakSesiKaynagi.spatialBlend = 1.0f; // 3D Ses
+
         if (referans.kameraTransform == null && Camera.main != null)
             referans.kameraTransform = Camera.main.transform;
     }
 
+    // YENİ: Sesi Manager'dan alıyoruz
+    private void Start()
+    {
+        if (SesYonetici.Instance != null && SesYonetici.Instance.oyuncu.ayakSesiLoop != null)
+        {
+            ayakSesiKaynagi.clip = SesYonetici.Instance.oyuncu.ayakSesiLoop;
+        }
+    }
+
     private void Update()
     {
-        // --- STUN VE ÖLÜM KİLİDİ ---
+        // Stun veya ölüm durumunda sesi kes
         if (savasScripti != null && (savasScripti.durum.olduMu || savasScripti.durum.mesgulMu))
         {
-            // Stun yediğinde de animasyon aniden kesilmesin, yavaşça sıfıra insin
             animator.SetFloat("Hiz", 0f, hareket.animasyonYumusatma, Time.deltaTime);
+            if (ayakSesiKaynagi.isPlaying) ayakSesiKaynagi.Stop();
             YerCekimiUygula(true); 
             return; 
         }
@@ -87,7 +97,7 @@ public class PlayerController : MonoBehaviour
         float z = Input.GetAxisRaw("Vertical");
         Vector3 girisYonu = new Vector3(x, 0f, z).normalized;
 
-        float hedefAnimHizi = 0f; // Animasyona göndereceğimiz ham değer
+        float hedefAnimHizi = 0f; 
 
         // 1. SAVAS MODU
         if (savasScripti.savas.savasModunda && savasScripti.mevcutHedef != null)
@@ -130,9 +140,29 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // --- DÜZELTME BURADA ---
-        // SetFloat'ın 3. ve 4. parametreleri "DampTime" (Yumuşatma) ve "DeltaTime"dır.
-        // Bu sayede BlendTree değerleri anında değişmez, akıcı bir şekilde kayar.
+        // --- YENİ: AYAK SESİ MANTIĞI ---
+        bool hareketEdiyor = girisYonu.magnitude > 0.1f;
+
+        // Hareket ediyor VE yerdeyse çal
+        if (hareketEdiyor && yerdeMi)
+        {
+            if (!ayakSesiKaynagi.isPlaying && ayakSesiKaynagi.clip != null)
+            {
+                // Robotik sesi kırmak için hafif ton değişimi
+                ayakSesiKaynagi.pitch = Random.Range(0.9f, 1.1f);
+                ayakSesiKaynagi.Play();
+            }
+        }
+        // Durduysa veya havadaysa sus
+        else
+        {
+            if (ayakSesiKaynagi.isPlaying)
+            {
+                ayakSesiKaynagi.Stop();
+            }
+        }
+        // -------------------------------
+
         animator.SetFloat("Hiz", hedefAnimHizi, hareket.animasyonYumusatma, Time.deltaTime);
 
         if (Input.GetButtonDown("Jump") && yerdeMi)

@@ -11,15 +11,16 @@ public class SilahHasar : MonoBehaviour
     
     [Header("SİLAH TÜRÜ")]
     [Tooltip("Bu obje düşmana değince hangi ses çıksın?")]
-    // GÜNCELLEME: Ses dosyası yerine TÜR seçiyoruz
     public SesYonetici.SilahSesTuru buSilahinTuru = SesYonetici.SilahSesTuru.StandartKilic;
 
+    // Saldırı verileri
     private int guncelHasar;
     private float guncelSersemletme;
     private float guncelItme;
     private Transform saldiranKisi;
     private int saldiriYonu;
 
+    // Kontrol
     private bool saldiriAktifMi = false;
     private List<GameObject> vurulanlarListesi = new List<GameObject>();
 
@@ -56,9 +57,11 @@ public class SilahHasar : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // 1. GÜVENLİK
         if (!saldiriAktifMi) return;
         if (saldiranKisi != null && other.transform.root == saldiranKisi.root) return;
 
+        // 2. KİMLİK KONTROLÜ
         EnemyAI vurulanEnemy = other.GetComponentInParent<EnemyAI>();
         PlayerCombat vurulanPlayer = other.GetComponentInParent<PlayerCombat>();
         
@@ -69,31 +72,42 @@ public class SilahHasar : MonoBehaviour
 
         if (hasarAlanAnaObje == null) return;
 
+        // 3. DOST ATEŞİ KONTROLÜ
         bool saldiranPlayerMi = saldiranKisi.GetComponent<PlayerCombat>() != null;
         bool saldiranEnemyMi = saldiranKisi.GetComponent<EnemyAI>() != null;
 
         if (saldiranPlayerMi && vurulanPlayer != null) return;
         if (saldiranEnemyMi && vurulanEnemy != null) return;
 
+        // 4. TEKRAR VURMA KONTROLÜ
         if (vurulanlarListesi.Contains(hasarAlanAnaObje)) return;
 
+        // --- İŞLEM BAŞLIYOR ---
         vurulanlarListesi.Add(hasarAlanAnaObje);
 
+        // A) Efekt Oluştur
         KanEfektiOlustur(other);
         
-        // GÜNCELLEME: Sesi Manager'a tür belirterek çaldırıyoruz
+        // B) Vuruş Sesi (Metal/Küt sesi - Türe göre)
         if (SesYonetici.Instance != null)
         {
             SesYonetici.Instance.VurusSesiCal(transform.position, buSilahinTuru);
         }
 
+        // C) Hasar Verme & Hasar Sesi (Senkronize Çözüm)
         if (vurulanEnemy != null)
         {
+            // Düşmanın canı yandı sesini BURADA anında çalıyoruz
+            if (SesYonetici.Instance != null) SesYonetici.Instance.DusmanHasarCal(transform.position);
+            
             vurulanEnemy.HasarAl(guncelHasar, saldiranKisi, saldiriYonu, guncelItme, 0.2f);
             if (guncelSersemletme > 0) vurulanEnemy.Sersemle(guncelSersemletme);
         }
         else if (vurulanPlayer != null)
         {
+            // Oyuncunun canı yandı sesini BURADA anında çalıyoruz
+            if (SesYonetici.Instance != null) SesYonetici.Instance.OyuncuHasarCal(transform.position);
+
             vurulanPlayer.HasarAl(guncelHasar, saldiranKisi, saldiriYonu, guncelItme, 0.2f);
             if (guncelSersemletme > 0) vurulanPlayer.Sersemle(guncelSersemletme);
         }
