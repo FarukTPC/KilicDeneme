@@ -55,6 +55,7 @@
     <Compile Include="Assets\General\Scripts\TPSCamera.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\General\Scripts\PlayerCombat.cs" />
+    <Compile Include="Assets\General\Scripts\SesYonetici.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\PROTOFACTOR\Ultimate Animation Collection\Animations\Creature Animset\Animation List - Creature Animset.txt" />
