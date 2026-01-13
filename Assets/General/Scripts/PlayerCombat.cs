@@ -50,16 +50,11 @@ public class PlayerCombat : MonoBehaviour
     [System.Serializable]
     public class Referanslar
     {
-        [Header("SİLAH HİTBOX REFERANSLARI")]
         public SilahHasar kilicScripti;  
         public SilahHasar tekmeScripti;  
         public SilahHasar kalkanScripti; 
-        
-        [Header("DİĞER")]
         public LayerMask dusmanKatmani; 
         public TPSCamera kameraScripti; 
-        
-        [Header("SARSINTI")]
         public float sarsintiSuresi = 0.2f;
         public float sarsintiSiddeti = 0.3f;
     }
@@ -67,25 +62,17 @@ public class PlayerCombat : MonoBehaviour
     [System.Serializable]
     public struct OzelSaldiri
     {
-        [Header("TEMEL AYARLAR")]
         public string saldiriAdi;      
         public KeyCode tus;       
         public string animatorTetikleyici;    
-        
-        [Header("ZAMANLAMALAR")]
         public float animasyonSuresi; 
         public float cooldown; 
-
         [HideInInspector] public float sonrakiKullanimZamani;
-
-        [Header("HASAR VE ETKİ")]
         public int hasar; 
         public bool sersemletirMi;
         public float sersemletmeSuresi;       
         public float geriItmeGucu;     
         public float geriItmeSuresi;  
-        
-        [Header("HANGİ UZUV KULLANILACAK?")]
         public SilahTipi kullanilacakSilah; 
     }
 
@@ -100,10 +87,7 @@ public class PlayerCombat : MonoBehaviour
     private float sonrakiSaldiriZamani = 0f; 
     private int mevcutCan;
     private bool blokluyorMu = false;
-    
-    // BURASI DEĞİŞTİ: private -> public yapıldı
     public bool saldiriyorMu = false; 
-    
     private float sonTiklamaZamani = -1f;
 
     private Vector3 baslangicPozisyonu;
@@ -170,17 +154,25 @@ public class PlayerCombat : MonoBehaviour
     {
         if (savas.savasModunda)
         {
+            // SAVAŞ BİTTİ
             savas.savasModunda = false;
             mevcutHedef = null;
             _animator.SetBool("SavasModu", false); 
+            
+            // MÜZİK: Ambiyansa Dön
+            if(SesYonetici.Instance != null) SesYonetici.Instance.MuzikDegistir(false);
         }
         else
         {
             HedefleriTara(); 
             if (mevcutHedef != null)
             {
+                // SAVAŞ BAŞLADI
                 savas.savasModunda = true;
                 _animator.SetBool("SavasModu", true);
+                
+                // MÜZİK: Savaş Müziğine Geç
+                if(SesYonetici.Instance != null) SesYonetici.Instance.MuzikDegistir(true);
             }
         }
     }
@@ -305,7 +297,6 @@ public class PlayerCombat : MonoBehaviour
         }
 
         mevcutCan -= gelenHasar;
-        
         SarsintiTetikle();
         
         if (mevcutCan <= 0)
@@ -361,9 +352,7 @@ public class PlayerCombat : MonoBehaviour
     private void SaldiriYap() 
     { 
         saldiriyorMu = true; 
-        
         sonrakiSaldiriZamani = Time.time + 2.0f; 
-        
         _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
         _animator.SetTrigger("Saldiri"); 
         
@@ -377,21 +366,16 @@ public class PlayerCombat : MonoBehaviour
     private IEnumerator SaldiriSuresiYonetimi()
     {
         yield return new WaitForSeconds(0.1f);
-
         float animasyonSuresi = _animator.GetCurrentAnimatorStateInfo(0).length;
         float gercekBekleme = Mathf.Max(animasyonSuresi, saldiri.beklemeSuresi);
-
         sonrakiSaldiriZamani = Time.time + (gercekBekleme - 0.1f);
-
         yield return new WaitForSeconds(gercekBekleme - 0.1f);
-        
         saldiriyorMu = false;
     }
 
     private IEnumerator OzelYetenekYap(int yetenekIndex) 
     { 
         OzelSaldiri yetenek = ozelSaldirilar[yetenekIndex];
-
         sonrakiSaldiriZamani = Time.time + yetenek.animasyonSuresi; 
         yetenek.sonrakiKullanimZamani = Time.time + yetenek.cooldown;
         ozelSaldirilar[yetenekIndex] = yetenek;
@@ -444,12 +428,12 @@ public class PlayerCombat : MonoBehaviour
         savas.savasModunda = false;
         _animator.SetBool("SavasModu", false);
 
+        // MÜZİK: Ölünce ambiyansa veya sessizliğe dön
+        if(SesYonetici.Instance != null) SesYonetici.Instance.MuzikDegistir(false);
+
         if(SesYonetici.Instance != null) SesYonetici.Instance.OyuncuOlumSesiVer(transform.position);
 
-        if (_oyuncuHareketScripti) 
-        {
-            _oyuncuHareketScripti.enabled = false;
-        }
+        if (_oyuncuHareketScripti) _oyuncuHareketScripti.enabled = false;
         
         if (oldurenYon == 3) oldurenYon = 1;
 
@@ -477,10 +461,7 @@ public class PlayerCombat : MonoBehaviour
         _animator.Rebind(); 
         _animator.Update(0f);
 
-        if (_oyuncuHareketScripti) 
-        {
-            _oyuncuHareketScripti.enabled = true;
-        }
+        if (_oyuncuHareketScripti) _oyuncuHareketScripti.enabled = true;
     }
 
     private IEnumerator SaldiriDurumuSifirla(float sure) 
@@ -497,14 +478,8 @@ public class PlayerCombat : MonoBehaviour
         
         while (t < sure) 
         { 
-            if (_karakterKontrol) 
-            {
-                _karakterKontrol.Move(yon * guc * Time.deltaTime); 
-            }
-            else 
-            {
-                transform.position += yon * guc * Time.deltaTime; 
-            }
+            if (_karakterKontrol) _karakterKontrol.Move(yon * guc * Time.deltaTime); 
+            else transform.position += yon * guc * Time.deltaTime; 
             t += Time.deltaTime; 
             yield return null; 
         } 

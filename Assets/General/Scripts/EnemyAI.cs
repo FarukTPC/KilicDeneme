@@ -48,6 +48,10 @@ public class EnemyAI : MonoBehaviour
     [System.Serializable]
     public class YapayZekaAyarlari
     {
+        [Header("NAVIGASYON AYARLARI")]
+        [Tooltip("Karakter havada kalıyorsa bu değeri artır/azalt. (Örn: -0.1 veya 0.1)")]
+        public float zeminOfset = 0f; // YENİ EKLENDİ
+
         public float saldiriMenzili = 1.5f;
         public float farkEtmeMenzili = 10f;
         public float vazgecmeMenzili = 20f; 
@@ -108,7 +112,7 @@ public class EnemyAI : MonoBehaviour
     
     private AudioSource enemyAudioSource;
     
-    // --- MANUEL HIZ VE ADIM SESİ ---
+    // Manuel Hız ve Adım Sesi Değişkenleri
     private float adimZamanlayicisi = 0f;
     private Vector3 oncekiPozisyon;
 
@@ -118,9 +122,9 @@ public class EnemyAI : MonoBehaviour
         animator = GetComponent<Animator>();
 
         enemyAudioSource = GetComponent<AudioSource>();
-        enemyAudioSource.loop = false; // LOOP ARTIK KAPALI
+        enemyAudioSource.loop = false; 
         enemyAudioSource.playOnAwake = false;
-        enemyAudioSource.spatialBlend = 1.0f; // Tam 3D Ses
+        enemyAudioSource.spatialBlend = 1.0f; 
         enemyAudioSource.rolloffMode = AudioRolloffMode.Linear;
         enemyAudioSource.minDistance = 1.0f;
         enemyAudioSource.maxDistance = sesDuyulmaMesafe; 
@@ -135,7 +139,13 @@ public class EnemyAI : MonoBehaviour
         }
 
         devriyeZamanlayicisi = yapayZeka.devriyeBeklemeSuresi;
-        if (ajan) ajan.speed = yapayZeka.devriyeHizi;
+        if (ajan) 
+        {
+            ajan.speed = yapayZeka.devriyeHizi;
+            
+            // NAVMESH OFFSET AYARI (Zemine oturtma)
+            ajan.baseOffset = yapayZeka.zeminOfset;
+        }
         
         oncekiPozisyon = transform.position;
     }
@@ -154,21 +164,22 @@ public class EnemyAI : MonoBehaviour
             return; 
         }
 
-        // --- MANUEL HIZ HESAPLAMA VE SES ---
+        // --- MANUEL HIZ HESAPLAMA ---
         Vector3 anlikPozisyon = transform.position;
+        // Y eksenindeki değişimi ihmal et (Sadece yatay hız)
         float katEdilenMesafe = Vector3.Distance(new Vector3(anlikPozisyon.x, 0, anlikPozisyon.z), 
                                                  new Vector3(oncekiPozisyon.x, 0, oncekiPozisyon.z));
         float gercekHiz = katEdilenMesafe / Time.deltaTime;
         oncekiPozisyon = anlikPozisyon;
 
-        // Hareket ediyor mu? (Hız > 0.1 ve Saldırmıyor ve Durmuyor)
+        // Hareket ediyor mu?
         bool hareketEdiyor = gercekHiz > 0.1f && !ajan.isStopped && !saldiriyorMu;
 
         if (hareketEdiyor)
         {
             adimZamanlayicisi += Time.deltaTime;
             
-            // Hızlı koşarsa daha seri ses çıksın
+            // Hızlı koşarsa daha sık ses çıksın
             float guncelSiklik = (gercekHiz > 3.0f) ? 0.35f : adimSikligi;
 
             if (adimZamanlayicisi >= guncelSiklik)
@@ -179,12 +190,10 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // Durunca süreyi fulle (ilk adımda hemen ses çıksın)
             adimZamanlayicisi = adimSikligi;
         }
-        // ------------------------------------
+        // ------------------------------
 
-        // ... Diğer AI Kodları (Zafer, Görme vb.) Aynen Devam ...
         if (oyuncuScripti != null && oyuncuScripti.durum.olduMu)
         {
             if (!zaferKutlamasiYaptiMi) StartCoroutine(ZaferKutlamasi());
@@ -252,13 +261,9 @@ public class EnemyAI : MonoBehaviour
 
             if (secilenSes != null)
             {
-                // Düşman sesi daha tok olsun (Pitch: 0.8 - 1.0)
                 enemyAudioSource.pitch = Random.Range(0.8f, 1.0f);
-                
-                // Volume Slider ile çarpım (Ses Yönetici Ayarı)
                 float baseVolume = Random.Range(0.8f, 1.0f);
                 enemyAudioSource.volume = baseVolume * SesYonetici.Instance.dusman.sesDuzeyi;
-                
                 enemyAudioSource.PlayOneShot(secilenSes);
             }
         }
