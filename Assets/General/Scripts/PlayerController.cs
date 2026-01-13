@@ -10,7 +10,6 @@ public class PlayerController : MonoBehaviour
         public float yurumeHizi = 2.0f;
         public float kosmaHizi = 5.0f;
         public float donusYumusakligi = 0.1f;
-        // Zıplama gücü tamamen silindi
         public float yerCekimi = -9.81f;
         public float animasyonYumusatma = 0.15f; 
         
@@ -23,7 +22,6 @@ public class PlayerController : MonoBehaviour
     public class Referanslar
     {
         public Transform kameraTransform;
-        [Tooltip("Karakterin topuklarının hizasında boş bir obje olmalı.")]
         public Transform zeminKontrol; 
         public float zeminMesafe = 0.4f;
         public LayerMask zeminKatmani;
@@ -45,12 +43,12 @@ public class PlayerController : MonoBehaviour
     private float donusHiziRef;
     
     private float adimZamanlayicisi = 0f;
+    
+    // YENİ: Gerçek hızı hesaplamak için önceki pozisyonu tutuyoruz
+    private Vector3 oncekiPozisyon;
 
     private void Awake()
     {
-        // 1. BAŞLANGIÇ KONTROLÜ
-        Debug.Log("PlayerController: BAŞLADI. Script aktif.");
-
         kontrolcu = GetComponent<CharacterController>();
         savasScripti = GetComponent<PlayerCombat>();
         animator = GetComponent<Animator>();
@@ -58,13 +56,15 @@ public class PlayerController : MonoBehaviour
         ayakSesiKaynagi = GetComponent<AudioSource>();
         if (ayakSesiKaynagi == null) ayakSesiKaynagi = gameObject.AddComponent<AudioSource>();
         
-        ayakSesiKaynagi.loop = false; // Loop kesinlikle kapalı olmalı
+        ayakSesiKaynagi.loop = false; 
         ayakSesiKaynagi.playOnAwake = false;
         ayakSesiKaynagi.spatialBlend = 0.0f; 
         ayakSesiKaynagi.volume = 1.0f;
 
         if (referans.kameraTransform == null && Camera.main != null)
             referans.kameraTransform = Camera.main.transform;
+            
+        oncekiPozisyon = transform.position;
     }
 
     private void Update()
@@ -83,30 +83,41 @@ public class PlayerController : MonoBehaviour
 
     private void HareketEt()
     {
-        // --- ZEMİN KONTROLÜ ---
-        // Eğer ZeminKontrol objesi atanmamışsa, Unity'nin kendi sistemini kullanır.
-        if (referans.zeminKontrol != null)
+        // 1. ZEMİN KONTROLÜ
+        if (referans.zeminKontrol)
         {
             yerdeMi = Physics.CheckSphere(referans.zeminKontrol.position, referans.zeminMesafe, referans.zeminKatmani);
         }
         else
         {
             yerdeMi = kontrolcu.isGrounded;
-            // Eğer referans yoksa konsola uyarı basar ama çalışmaya devam eder
-            // Debug.LogWarning("Zemin Kontrol objesi yok, isGrounded kullanılıyor: " + yerdeMi);
         }
         
         if (yerdeMi && hizVektoru.y < 0) hizVektoru.y = -2f; 
 
+        // 2. HAREKET INPUTLARI
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
         Vector3 girisYonu = new Vector3(x, 0f, z).normalized;
 
-        // --- SES SİSTEMİ DEDEKTİFİ ---
-        float anlikHiz = kontrolcu.velocity.magnitude;
+        // --- MANUEL HIZ HESAPLAMA (KESİN ÇÖZÜM) ---
+        // CharacterController.velocity yerine, kendi yer değiştirme miktarımıza bakıyoruz.
+        // Sadece X ve Z eksenindeki (yatay) hareketi ölçüyoruz, Y (zıplama/düşme) hariç.
+        Vector3 anlikPozisyon = transform.position;
+        float katEdilenMesafe = Vector3.Distance(new Vector3(anlikPozisyon.x, 0, anlikPozisyon.z), 
+                                                 new Vector3(oncekiPozisyon.x, 0, oncekiPozisyon.z));
+                                                 
+        float gercekHiz = katEdilenMesafe / Time.deltaTime;
         
-        // Hız 0.1'den büyükse ve yerdeyse yürüyor sayılır
-        bool hareketEdiyor = anlikHiz > 0.1f && yerdeMi;
+        // Bir sonraki kare için pozisyonu kaydet
+        oncekiPozisyon = anlikPozisyon;
+
+        // HIZ EŞİĞİ: 0.1f (Çok düşük hızda bile algılasın)
+        // SALDIRI KONTROLÜ: Saldırı yaparken ayak sesi çıkmasın
+        bool saldiriyor = (savasScripti != null && savasScripti.saldiriyorMu);
+        bool hareketEdiyor = (gercekHiz > 0.1f) && yerdeMi && !saldiriyor;
+
+        // Debug.Log($"Hız: {gercekHiz} | Yerde: {yerdeMi} | Hareket Ediyor: {hareketEdiyor}");
 
         if (hareketEdiyor)
         {
@@ -117,17 +128,14 @@ public class PlayerController : MonoBehaviour
 
             if (adimZamanlayicisi >= hedefSure)
             {
-                // Süre doldu, ses çalma emri veriliyor!
                 RastgeleAdimSesiCal(kosuyor);
                 adimZamanlayicisi = 0f;
             }
         }
         else
         {
+            // Durunca sayacı hemen doldur ki tekrar basınca ANINDA ses çıksın
             adimZamanlayicisi = hareket.yurumeAdimSikligi;
-            
-            // Eğer yürüdüğünü sanıyorsun ama ses çıkmıyorsa sebebi budur:
-            // if (anlikHiz > 0.1f && !yerdeMi) Debug.LogWarning("Hareket var ama YERDE DEĞİL!");
         }
 
         // Animasyon
@@ -161,41 +169,24 @@ public class PlayerController : MonoBehaviour
 
     private void RastgeleAdimSesiCal(bool kosuyorMu)
     {
-        // 1. SES YÖNETİCİSİ VAR MI?
-        if (SesYonetici.Instance == null) 
+        if (SesYonetici.Instance == null || SesYonetici.Instance.oyuncu.adimSesleri == null) return;
+
+        if (SesYonetici.Instance.oyuncu.adimSesleri.Length > 0)
         {
-            Debug.LogError("HATA: 'SesYonetici' sahneye ekli değil!");
-            return;
+            int index = Random.Range(0, SesYonetici.Instance.oyuncu.adimSesleri.Length);
+            AudioClip secilenSes = SesYonetici.Instance.oyuncu.adimSesleri[index];
+
+            if (secilenSes != null)
+            {
+                ayakSesiKaynagi.pitch = Random.Range(0.9f, 1.1f); // Doğal ton değişimi
+                
+                float minVol = kosuyorMu ? 0.6f : 0.8f;
+                float maxVol = kosuyorMu ? 0.8f : 1.0f;
+                ayakSesiKaynagi.volume = Random.Range(minVol, maxVol);
+                
+                ayakSesiKaynagi.PlayOneShot(secilenSes);
+            }
         }
-
-        // 2. DİZİ BOŞ MU? (En sık yapılan hata burasıdır)
-        if (SesYonetici.Instance.oyuncu.adimSesleri == null || SesYonetici.Instance.oyuncu.adimSesleri.Length == 0)
-        {
-            Debug.LogError("HATA: SesYonetici > Oyuncu Sesleri > Adim Sesleri listesi BOŞ! Inspector'dan sesleri ekle.");
-            return;
-        }
-
-        // 3. SES DOSYASI BOŞ MU?
-        int index = Random.Range(0, SesYonetici.Instance.oyuncu.adimSesleri.Length);
-        AudioClip secilenSes = SesYonetici.Instance.oyuncu.adimSesleri[index];
-
-        if (secilenSes == null)
-        {
-            Debug.LogError("HATA: Adim Sesleri listesindeki " + index + ". eleman BOŞ (None)!");
-            return;
-        }
-
-        // --- SES ÇALIYOR ---
-        ayakSesiKaynagi.pitch = Random.Range(0.85f, 1.15f);
-        
-        float minVol = kosuyorMu ? 0.6f : 0.8f;
-        float maxVol = kosuyorMu ? 0.8f : 1.0f;
-        ayakSesiKaynagi.volume = Random.Range(minVol, maxVol);
-        
-        ayakSesiKaynagi.PlayOneShot(secilenSes);
-        
-        // Ses çaldığında konsola yazacak (Bunu görürsen sistem çalışıyor demektir)
-        // Debug.Log("SES ÇALDI: " + secilenSes.name); 
     }
 
     private void YerCekimiUygula(bool kilitliMod)
@@ -205,7 +196,6 @@ public class PlayerController : MonoBehaviour
         kontrolcu.Move(hizVektoru * Time.deltaTime);
     }
 
-    // Karakterin altındaki kırmızı küreyi çizer
     private void OnDrawGizmosSelected()
     {
         if (referans.zeminKontrol != null)

@@ -100,7 +100,10 @@ public class PlayerCombat : MonoBehaviour
     private float sonrakiSaldiriZamani = 0f; 
     private int mevcutCan;
     private bool blokluyorMu = false;
-    private bool saldiriyorMu = false;
+    
+    // BURASI DEĞİŞTİ: private -> public yapıldı
+    public bool saldiriyorMu = false; 
+    
     private float sonTiklamaZamani = -1f;
 
     private Vector3 baslangicPozisyonu;
@@ -288,7 +291,6 @@ public class PlayerCombat : MonoBehaviour
             {
                 _animator.SetTrigger("SavusturmaBasarili"); 
                 
-                // DÜZELTME: ParrySesiCal -> ParrySesiVer
                 if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiVer(transform.position);
 
                 SarsintiTetikle();
@@ -303,8 +305,6 @@ public class PlayerCombat : MonoBehaviour
         }
 
         mevcutCan -= gelenHasar;
-        
-        // SES BURADAN SİLİNDİ (SilahHasar.cs çalıyor)
         
         SarsintiTetikle();
         
@@ -367,7 +367,6 @@ public class PlayerCombat : MonoBehaviour
         _animator.SetInteger("SaldiriYonu", (int)yon.mevcutYon);
         _animator.SetTrigger("Saldiri"); 
         
-        // DÜZELTME: SallamaSesiCal -> SallamaSesiVer
         if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiVer(transform.position);
         
         StartCoroutine(AtilmaSureci()); 
@@ -400,7 +399,6 @@ public class PlayerCombat : MonoBehaviour
         durum.mesgulMu = true; 
         _animator.SetTrigger(yetenek.animatorTetikleyici); 
         
-        // DÜZELTME: SallamaSesiCal -> SallamaSesiVer
         if(SesYonetici.Instance != null) SesYonetici.Instance.SallamaSesiVer(transform.position);
         
         StartCoroutine(SaldiriDurumuSifirla(yetenek.animasyonSuresi)); 
@@ -446,7 +444,6 @@ public class PlayerCombat : MonoBehaviour
         savas.savasModunda = false;
         _animator.SetBool("SavasModu", false);
 
-        // DÜZELTME: OyuncuOlumCal -> OyuncuOlumSesiVer
         if(SesYonetici.Instance != null) SesYonetici.Instance.OyuncuOlumSesiVer(transform.position);
 
         if (_oyuncuHareketScripti) 

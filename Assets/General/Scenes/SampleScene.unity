@@ -513,13 +513,13 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.65
-  m_Radius: 0.32
+  m_Height: 1.99
+  m_Radius: 0.25
   m_SlopeLimit: 45
   m_StepOffset: 0.3
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0.81, z: -0.015}
+  m_Center: {x: 0, y: 1, z: -0.015}
 --- !u!114 &428562011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -536,7 +536,6 @@ MonoBehaviour:
     yurumeHizi: 2
     kosmaHizi: 5
     donusYumusakligi: 0.1
-    ziplamaGucu: 1
     yerCekimi: -9.81
     animasyonYumusatma: 0.3
     yurumeAdimSikligi: 0.5
@@ -544,7 +543,7 @@ MonoBehaviour:
   referans:
     kameraTransform: {fileID: 0}
     zeminKontrol: {fileID: 913436584}
-    zeminMesafe: -1
+    zeminMesafe: 1
     zeminKatmani:
       serializedVersion: 2
       m_Bits: 4294967295
@@ -615,6 +614,7 @@ MonoBehaviour:
     geriItmeGucu: 1
     geriItmeSuresi: 0.6
     kullanilacakSilah: 2
+  saldiriyorMu: 0
   mevcutHedef: {fileID: 0}
 --- !u!82 &428562016
 AudioSource:
@@ -5353,7 +5353,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: 1149b1d3571dba84e81bd2f15197a856, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
@@ -5409,9 +5409,9 @@ CapsuleCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.30873632
-  m_Height: 1.6292115
+  m_Height: 1.6748247
   m_Direction: 1
-  m_Center: {x: 0.002686739, y: 0.97013515, z: 0.0076441765}
+  m_Center: {x: 0.002686739, y: 0.9133384, z: 0.0076441765}
 --- !u!4 &5901452234260371658
 Transform:
   m_ObjectHideFlags: 0
