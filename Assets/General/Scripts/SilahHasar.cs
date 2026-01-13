@@ -11,7 +11,7 @@ public class SilahHasar : MonoBehaviour
     
     [Header("SİLAH TÜRÜ")]
     [Tooltip("Bu obje düşmana değince hangi ses çıksın?")]
-    public SesYonetici.SilahSesTuru buSilahinTuru = SesYonetici.SilahSesTuru.StandartKilic;
+    public SesYonetici.SilahSesTuru buSilahinTuru = SesYonetici.SilahSesTuru.Kilic;
 
     // Saldırı verileri
     private int guncelHasar;

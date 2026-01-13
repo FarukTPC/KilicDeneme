@@ -5,7 +5,7 @@ public class SesYonetici : MonoBehaviour
 {
     public static SesYonetici Instance;
 
-    public enum SilahSesTuru { StandartKilic, Tekme, Kalkan }
+    public enum SilahSesTuru { Kilic, Tekme, Kalkan }
 
     [System.Serializable]
     public class OrtamSesleri
@@ -21,9 +21,9 @@ public class SesYonetici : MonoBehaviour
         public AudioClip[] hasarAlmaSesleri; 
         public AudioClip olumSesi;
         
-        [Header("ADIM SESLERİ (ÇOK ÖNEMLİ)")]
-        [Tooltip("Buraya 3-4 farklı 'Tak' sesi sürükle. Kod buradan rastgele seçecek.")]
-        public AudioClip[] adimSesleri; // BU KISIM DİZİ OLMAK ZORUNDA
+        [Header("ADIM SESLERİ")]
+        [Tooltip("Buraya 3-4 farklı ses sürükle.")]
+        public AudioClip[] adimSesleri; 
         
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
@@ -31,11 +31,16 @@ public class SesYonetici : MonoBehaviour
     [System.Serializable]
     public class DusmanSesleri
     {
+        [Header("GENEL SESLER")]
         public AudioClip kesifSesi; 
         public AudioClip zaferBagirmasi;
         public AudioClip[] hasarAlmaSesleri;
         public AudioClip olumSesi;
-        public AudioClip ayakSesiLoop; 
+        
+        [Header("ADIM SESLERİ")]
+        [Tooltip("Düşman yürüyüş sesleri dizisi.")]
+        public AudioClip[] adimSesleri; // BURASI DEĞİŞTİ (Loop yerine Dizi oldu)
+
         [Range(0, 1)] public float sesDuzeyi = 1.0f;
     }
 
@@ -82,7 +87,6 @@ public class SesYonetici : MonoBehaviour
         }
     }
 
-    // Geçici 3D ses oluşturucu
     public void SesCal(AudioClip klip, Vector3 pozisyon, float hacim = 1.0f, float maxMesafe = 20f)
     {
         if (klip == null) return;
@@ -135,7 +139,7 @@ public class SesYonetici : MonoBehaviour
 
         switch (tur)
         {
-            case SilahSesTuru.StandartKilic:
+            case SilahSesTuru.Kilic:
                 klip = efekt.kılıcVurmaSesi;
                 secilenSesDuzeyi = efekt.kılıcVurmaSesDuzeyi;
                 break;

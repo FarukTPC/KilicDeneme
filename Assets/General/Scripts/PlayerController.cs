@@ -10,6 +10,7 @@ public class PlayerController : MonoBehaviour
         public float yurumeHizi = 2.0f;
         public float kosmaHizi = 5.0f;
         public float donusYumusakligi = 0.1f;
+        // Zıplama gücü tamamen kaldırıldı
         public float yerCekimi = -9.81f;
         public float animasyonYumusatma = 0.15f; 
         
@@ -101,23 +102,18 @@ public class PlayerController : MonoBehaviour
         Vector3 girisYonu = new Vector3(x, 0f, z).normalized;
 
         // --- MANUEL HIZ HESAPLAMA (KESİN ÇÖZÜM) ---
-        // CharacterController.velocity yerine, kendi yer değiştirme miktarımıza bakıyoruz.
-        // Sadece X ve Z eksenindeki (yatay) hareketi ölçüyoruz, Y (zıplama/düşme) hariç.
         Vector3 anlikPozisyon = transform.position;
         float katEdilenMesafe = Vector3.Distance(new Vector3(anlikPozisyon.x, 0, anlikPozisyon.z), 
                                                  new Vector3(oncekiPozisyon.x, 0, oncekiPozisyon.z));
                                                  
         float gercekHiz = katEdilenMesafe / Time.deltaTime;
         
-        // Bir sonraki kare için pozisyonu kaydet
         oncekiPozisyon = anlikPozisyon;
 
-        // HIZ EŞİĞİ: 0.1f (Çok düşük hızda bile algılasın)
+        // HIZ EŞİĞİ: 0.1f
         // SALDIRI KONTROLÜ: Saldırı yaparken ayak sesi çıkmasın
         bool saldiriyor = (savasScripti != null && savasScripti.saldiriyorMu);
         bool hareketEdiyor = (gercekHiz > 0.1f) && yerdeMi && !saldiriyor;
-
-        // Debug.Log($"Hız: {gercekHiz} | Yerde: {yerdeMi} | Hareket Ediyor: {hareketEdiyor}");
 
         if (hareketEdiyor)
         {
@@ -134,7 +130,6 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // Durunca sayacı hemen doldur ki tekrar basınca ANINDA ses çıksın
             adimZamanlayicisi = hareket.yurumeAdimSikligi;
         }
 
@@ -178,11 +173,15 @@ public class PlayerController : MonoBehaviour
 
             if (secilenSes != null)
             {
-                ayakSesiKaynagi.pitch = Random.Range(0.9f, 1.1f); // Doğal ton değişimi
+                ayakSesiKaynagi.pitch = Random.Range(0.85f, 1.15f);
                 
+                // Temel ses seviyesini belirle (Koşarken biraz daha kısık)
                 float minVol = kosuyorMu ? 0.6f : 0.8f;
                 float maxVol = kosuyorMu ? 0.8f : 1.0f;
-                ayakSesiKaynagi.volume = Random.Range(minVol, maxVol);
+                float baseVolume = Random.Range(minVol, maxVol);
+
+                // DÜZELTME BURADA: Ses Yöneticisindeki "Ses Düzeyi" slider değeriyle çarpıyoruz
+                ayakSesiKaynagi.volume = baseVolume * SesYonetici.Instance.oyuncu.sesDuzeyi;
                 
                 ayakSesiKaynagi.PlayOneShot(secilenSes);
             }

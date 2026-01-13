@@ -69,12 +69,9 @@ public class EnemyAI : MonoBehaviour
     [System.Serializable]
     public class Referanslar
     {
-        [Header("SİLAH HİTBOX")]
         public SilahHasar kilicScripti;
         public SilahHasar tekmeScripti;
         public SilahHasar kalkanScripti;
-
-        [Header("DİĞER")]
         public GameObject vurusEfekti;
     }
 
@@ -86,9 +83,8 @@ public class EnemyAI : MonoBehaviour
     [Header("REFERANSLAR")] public Referanslar referanslar;
     
     [Header("SES VE DUYULMA")]
-    [Tooltip("Düşmanın ayak sesinin duyulacağı maksimum mesafe.")]
     public float sesDuyulmaMesafe = 20f;
-    public float adimSikligi = 0.6f; // Enemy biraz daha ağır yürüsün
+    public float adimSikligi = 0.5f; 
 
     private int mevcutCan;
     private bool saldiriyorMu = false;
@@ -96,7 +92,6 @@ public class EnemyAI : MonoBehaviour
     private bool zaferKutlamasiYaptiMi = false;
     private bool taktikselBeklemeAktif = false;
     
-    // Keşif Sesi Kontrolü
     private bool oyuncuyuGordu = false;
     private bool dahaOnceGorduMu = false;
     private bool oncekiGormeDurumu = false;
@@ -105,22 +100,25 @@ public class EnemyAI : MonoBehaviour
     private float sonrakiEylemZamani;
     private float sonrakiOzelSaldiriZamani = 0f;
     private float devriyeZamanlayicisi;
+    
     private Transform oyuncu;
     private PlayerCombat oyuncuScripti; 
     private NavMeshAgent ajan;
     private Animator animator;
     
     private AudioSource enemyAudioSource;
-    private float adimSayaci = 0f;
+    
+    // --- MANUEL HIZ VE ADIM SESİ ---
+    private float adimZamanlayicisi = 0f;
+    private Vector3 oncekiPozisyon;
 
     private void Awake()
     {
         ajan = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
 
-        // Audio Source Kurulumu (Radius Ayarlı)
         enemyAudioSource = GetComponent<AudioSource>();
-        enemyAudioSource.loop = false; // LOOP KAPALI
+        enemyAudioSource.loop = false; // LOOP ARTIK KAPALI
         enemyAudioSource.playOnAwake = false;
         enemyAudioSource.spatialBlend = 1.0f; // Tam 3D Ses
         enemyAudioSource.rolloffMode = AudioRolloffMode.Linear;
@@ -137,20 +135,9 @@ public class EnemyAI : MonoBehaviour
         }
 
         devriyeZamanlayicisi = yapayZeka.devriyeBeklemeSuresi;
+        if (ajan) ajan.speed = yapayZeka.devriyeHizi;
         
-        if (ajan) 
-        {
-            ajan.speed = yapayZeka.devriyeHizi;
-        }
-    }
-
-    private void Start()
-    {
-        // Ayak sesini Manager'dan çek
-        if (SesYonetici.Instance != null && SesYonetici.Instance.dusman.ayakSesiLoop != null)
-        {
-            enemyAudioSource.clip = SesYonetici.Instance.dusman.ayakSesiLoop;
-        }
+        oncekiPozisyon = transform.position;
     }
 
     private void Update()
@@ -163,72 +150,53 @@ public class EnemyAI : MonoBehaviour
                 ajan.velocity = Vector3.zero; 
                 ajan.ResetPath(); 
             }
-            if (animator) 
-            {
-                animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
-            }
+            if (animator) animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime);
             return; 
         }
 
-        // --- ENEMY RİTMİK AYAK SESİ ---
-        // Enemy hareket ediyor mu?
-        if (ajan.velocity.magnitude > 0.1f && !ajan.isStopped)
-        {
-            adimSayaci += Time.deltaTime;
-            
-            // Hıza göre adım aralığını ayarla (Hızlı koşarsa seri ses çıksın)
-            float guncelAralik = adimSikligi;
-            if (ajan.velocity.magnitude > 3.0f) guncelAralik = 0.35f;
+        // --- MANUEL HIZ HESAPLAMA VE SES ---
+        Vector3 anlikPozisyon = transform.position;
+        float katEdilenMesafe = Vector3.Distance(new Vector3(anlikPozisyon.x, 0, anlikPozisyon.z), 
+                                                 new Vector3(oncekiPozisyon.x, 0, oncekiPozisyon.z));
+        float gercekHiz = katEdilenMesafe / Time.deltaTime;
+        oncekiPozisyon = anlikPozisyon;
 
-            if (adimSayaci >= guncelAralik)
+        // Hareket ediyor mu? (Hız > 0.1 ve Saldırmıyor ve Durmuyor)
+        bool hareketEdiyor = gercekHiz > 0.1f && !ajan.isStopped && !saldiriyorMu;
+
+        if (hareketEdiyor)
+        {
+            adimZamanlayicisi += Time.deltaTime;
+            
+            // Hızlı koşarsa daha seri ses çıksın
+            float guncelSiklik = (gercekHiz > 3.0f) ? 0.35f : adimSikligi;
+
+            if (adimZamanlayicisi >= guncelSiklik)
             {
-                if(enemyAudioSource.clip != null)
-                {
-                    enemyAudioSource.pitch = Random.Range(0.85f, 1.0f); // Enemy daha kalın ses çıkarsın
-                    enemyAudioSource.PlayOneShot(enemyAudioSource.clip);
-                }
-                adimSayaci = 0f;
+                RastgeleAdimSesiCal();
+                adimZamanlayicisi = 0f;
             }
         }
         else
         {
-            adimSayaci = adimSikligi; // Durunca sayacı hazırla
+            // Durunca süreyi fulle (ilk adımda hemen ses çıksın)
+            adimZamanlayicisi = adimSikligi;
         }
-        // ------------------------------
+        // ------------------------------------
 
+        // ... Diğer AI Kodları (Zafer, Görme vb.) Aynen Devam ...
         if (oyuncuScripti != null && oyuncuScripti.durum.olduMu)
         {
-            if (!zaferKutlamasiYaptiMi) 
-            {
-                StartCoroutine(ZaferKutlamasi());
-            }
+            if (!zaferKutlamasiYaptiMi) StartCoroutine(ZaferKutlamasi());
             return;
         }
-        else 
-        { 
-            zaferKutlamasiYaptiMi = false; 
-        }
+        else { zaferKutlamasiYaptiMi = false; }
 
         float mesafe = oyuncu ? Vector3.Distance(transform.position, oyuncu.position) : 999f;
 
-        if (!oyuncuyuGordu) 
-        { 
-            if (mesafe <= yapayZeka.farkEtmeMenzili) 
-            {
-                oyuncuyuGordu = true;
-            }
-        }
-        else 
-        { 
-            if (mesafe > yapayZeka.vazgecmeMenzili) 
-            { 
-                oyuncuyuGordu = false; 
-                taktikselBeklemeAktif = false; 
-                dahaOnceGorduMu = false;
-            } 
-        }
+        if (!oyuncuyuGordu) { if (mesafe <= yapayZeka.farkEtmeMenzili) oyuncuyuGordu = true; }
+        else { if (mesafe > yapayZeka.vazgecmeMenzili) { oyuncuyuGordu = false; taktikselBeklemeAktif = false; dahaOnceGorduMu = false; } }
 
-        // --- KEŞİF SESİ ---
         if (oyuncuyuGordu && !oncekiGormeDurumu)
         {
             if(SesYonetici.Instance != null && !dahaOnceGorduMu) 
@@ -243,64 +211,56 @@ public class EnemyAI : MonoBehaviour
         {
             if (taktikselBeklemeAktif)
             {
-                if (mesafe <= yapayZeka.saldiriMenzili * 0.3f) 
-                {
-                    TaktikselBeklemeIptalVeTuzak();
-                }
+                if (mesafe <= yapayZeka.saldiriMenzili * 0.3f) TaktikselBeklemeIptalVeTuzak();
                 else 
                 { 
-                    if (ajan.isActiveAndEnabled) 
-                    {
-                        ajan.isStopped = true; 
-                    }
-
+                    if (ajan.isActiveAndEnabled) ajan.isStopped = true; 
                     OyuncuyaDon(); 
-                    
-                    if (animator) 
-                    {
-                        animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime); 
-                    }
+                    if (animator) animator.SetFloat("Hiz", 0f, yapayZeka.animasyonYumusatma, Time.deltaTime); 
                     return; 
                 }
             }
 
             if (mesafe <= yapayZeka.saldiriMenzili) 
             { 
-                if (ajan.isActiveAndEnabled) 
-                {
-                    ajan.speed = yapayZeka.savasYuruyusHizi; 
-                }
+                if (ajan.isActiveAndEnabled) ajan.speed = yapayZeka.savasYuruyusHizi; 
                 SavasMantigi(); 
             }
             else 
             { 
                 BlokuBirak(); 
-                if (ajan.isActiveAndEnabled) 
-                {
-                    ajan.speed = yapayZeka.kovalamaHizi; 
-                }
+                if (ajan.isActiveAndEnabled) ajan.speed = yapayZeka.kovalamaHizi; 
                 Kovala(); 
             }
         }
         else 
         { 
             BlokuBirak(); 
-            if (ajan.isActiveAndEnabled) 
-            {
-                ajan.speed = yapayZeka.devriyeHizi; 
-            }
+            if (ajan.isActiveAndEnabled) ajan.speed = yapayZeka.devriyeHizi; 
             DevriyeGez(); 
         }
 
-        float hedefHiz = 0f;
-        if (ajan && !blokluyorMu && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        {
-            hedefHiz = ajan.velocity.magnitude;
-        }
+        if (animator) animator.SetFloat("Hiz", gercekHiz, yapayZeka.animasyonYumusatma, Time.deltaTime);
+    }
 
-        if (animator) 
+    private void RastgeleAdimSesiCal()
+    {
+        if (SesYonetici.Instance != null && SesYonetici.Instance.dusman.adimSesleri != null && SesYonetici.Instance.dusman.adimSesleri.Length > 0)
         {
-            animator.SetFloat("Hiz", hedefHiz, yapayZeka.animasyonYumusatma, Time.deltaTime);
+            int index = Random.Range(0, SesYonetici.Instance.dusman.adimSesleri.Length);
+            AudioClip secilenSes = SesYonetici.Instance.dusman.adimSesleri[index];
+
+            if (secilenSes != null)
+            {
+                // Düşman sesi daha tok olsun (Pitch: 0.8 - 1.0)
+                enemyAudioSource.pitch = Random.Range(0.8f, 1.0f);
+                
+                // Volume Slider ile çarpım (Ses Yönetici Ayarı)
+                float baseVolume = Random.Range(0.8f, 1.0f);
+                enemyAudioSource.volume = baseVolume * SesYonetici.Instance.dusman.sesDuzeyi;
+                
+                enemyAudioSource.PlayOneShot(secilenSes);
+            }
         }
     }
 
@@ -308,28 +268,17 @@ public class EnemyAI : MonoBehaviour
     { 
         taktikselBeklemeAktif = false; 
         StopCoroutine("TaktikselBeklemeSureci"); 
-        
         OyuncuyaDon(); 
-        
         float zar = Random.value; 
-        if (zar < yapayZeka.taktikselParrySansi) 
-        {
-            StartCoroutine(SavunmaYap()); 
-        }
-        else 
-        {
-            StartCoroutine(SaldiriYap()); 
-        }
+        if (zar < yapayZeka.taktikselParrySansi) StartCoroutine(SavunmaYap()); 
+        else StartCoroutine(SaldiriYap()); 
     }
     
     private void TaktikselBeklemeKarariVer() 
     { 
         if (Random.value < yapayZeka.taktikselBeklemeIhtimali) 
         { 
-            if (!taktikselBeklemeAktif) 
-            {
-                StartCoroutine(TaktikselBeklemeSureci()); 
-            }
+            if (!taktikselBeklemeAktif) StartCoroutine(TaktikselBeklemeSureci()); 
         } 
     }
     
@@ -343,10 +292,7 @@ public class EnemyAI : MonoBehaviour
     private IEnumerator ZaferKutlamasi() 
     { 
         zaferKutlamasiYaptiMi = true; 
-        if (ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        {
-            ajan.isStopped = true; 
-        }
+        if (ajan.isActiveAndEnabled && ajan.isOnNavMesh) ajan.isStopped = true; 
 
         BlokuBirak(); 
         animator.SetTrigger("Zafer"); 
@@ -354,11 +300,7 @@ public class EnemyAI : MonoBehaviour
         if(SesYonetici.Instance != null) SesYonetici.Instance.DusmanZaferSesiVer(transform.position);
 
         yield return new WaitForSeconds(4.0f); 
-        
-        if (ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        {
-            ajan.isStopped = false; 
-        }
+        if (ajan.isActiveAndEnabled && ajan.isOnNavMesh) ajan.isStopped = false; 
     }
     
     private void DevriyeGez() 
@@ -383,10 +325,7 @@ public class EnemyAI : MonoBehaviour
         Vector3 rastgeleYon = Random.insideUnitSphere * yaricap; 
         rastgeleYon += merkez; 
         NavMeshHit hit; 
-        if (NavMesh.SamplePosition(rastgeleYon, out hit, yaricap, 1)) 
-        {
-            return hit.position; 
-        }
+        if (NavMesh.SamplePosition(rastgeleYon, out hit, yaricap, 1)) return hit.position; 
         return merkez; 
     }
     
@@ -407,14 +346,8 @@ public class EnemyAI : MonoBehaviour
         if (!saldiriyorMu && Time.time >= sonrakiEylemZamani) 
         { 
             float karar = Random.value; 
-            if (karar < savas.savunmaSikligi) 
-            {
-                StartCoroutine(SavunmaYap()); 
-            }
-            else 
-            {
-                StartCoroutine(SaldiriYap()); 
-            }
+            if (karar < savas.savunmaSikligi) StartCoroutine(SavunmaYap()); 
+            else StartCoroutine(SaldiriYap()); 
         } 
     }
 
@@ -437,7 +370,6 @@ public class EnemyAI : MonoBehaviour
         if (ozelMi && ozelSaldiriHazir)
         {
             sonrakiOzelSaldiriZamani = Time.time + ozelSaldiri.beklemeSuresi;
-            
             if (Random.value > 0.5f)
             {
                 animator.SetTrigger("Tekme");
@@ -490,10 +422,7 @@ public class EnemyAI : MonoBehaviour
     private IEnumerator SilahKapatici(SilahHasar silah, float sure)
     {
         yield return new WaitForSeconds(sure);
-        if (silah != null) 
-        {
-            silah.VurusuBitir();
-        }
+        if (silah != null) silah.VurusuBitir();
     }
 
     private IEnumerator SavunmaYap()
@@ -522,41 +451,22 @@ public class EnemyAI : MonoBehaviour
         if (blokluyorMu && (int)mevcutYon == saldiriYonu && saldiriYonu != 3)
         {
             animator.SetTrigger("SavusturmaBasarili");
-            
             if(SesYonetici.Instance != null) SesYonetici.Instance.ParrySesiVer(transform.position);
-
             PlayerCombat pc = saldiran.GetComponent<PlayerCombat>();
-            if (pc != null) 
-            {
-                pc.Sersemle(savusturma.sersemletmeSuresi);
-            }
+            if (pc != null) pc.Sersemle(savusturma.sersemletmeSuresi);
             return;
         }
 
         mevcutCan -= dmg;
-        
         if (mevcutCan <= 0)
         {
             Ol(saldiriYonu);
         }
         else
         {
-            if (saldiran && itmeGucu > 0) 
-            {
-                StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
-            }
-
-            if (!saldiriyorMu) 
-            { 
-                BlokuBirak(); 
-                animator.SetTrigger("Hasar"); 
-                TaktikselBeklemeKarariVer(); 
-            }
-            else 
-            { 
-                saldiriyorMu = false; 
-                TaktikselBeklemeKarariVer(); 
-            }
+            if (saldiran && itmeGucu > 0) StartCoroutine(GeriTepme(saldiran, itmeGucu, itmeSuresi));
+            if (!saldiriyorMu) { BlokuBirak(); animator.SetTrigger("Hasar"); TaktikselBeklemeKarariVer(); }
+            else { saldiriyorMu = false; TaktikselBeklemeKarariVer(); }
         }
     }
 
@@ -574,21 +484,12 @@ public class EnemyAI : MonoBehaviour
     {
         saglik.olduMu = true;
         BlokuBirak();
-        
-        if (ajan && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        { 
-            ajan.isStopped = true; 
-            ajan.velocity = Vector3.zero; 
-        }
-
+        if (ajan && ajan.isActiveAndEnabled && ajan.isOnNavMesh) { ajan.isStopped = true; ajan.velocity = Vector3.zero; }
         if (ajan) ajan.enabled = false;
         if (GetComponent<Collider>()) GetComponent<Collider>().enabled = false;
-        
         yield return new WaitForEndOfFrame();
-        
         animator.SetInteger("OlumTipi", oldurenYon);
         animator.SetTrigger("Olum");
-        
         this.enabled = false;
     }
 
@@ -602,25 +503,11 @@ public class EnemyAI : MonoBehaviour
     {
         saglik.sersemlediMi = true;
         BlokuBirak();
-        
         yield return new WaitForEndOfFrame();
-        
         animator.SetTrigger("Sersemleme");
-        
-        if (ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        { 
-            ajan.isStopped = true; 
-            ajan.velocity = Vector3.zero; 
-            ajan.ResetPath(); 
-        }
-        
+        if (ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh) { ajan.isStopped = true; ajan.velocity = Vector3.zero; ajan.ResetPath(); }
         yield return new WaitForSeconds(sure);
-        
-        if (!saglik.olduMu && ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-        {
-            ajan.isStopped = false; 
-        }
-
+        if (!saglik.olduMu && ajan != null && ajan.isActiveAndEnabled && ajan.isOnNavMesh) ajan.isStopped = false; 
         saglik.sersemlediMi = false;
         sonrakiEylemZamani = Time.time + 0.5f;
     }
@@ -628,42 +515,28 @@ public class EnemyAI : MonoBehaviour
     private void OyuncuyaDon() 
     { 
         if (!oyuncu) return; 
-        
         Vector3 yon = (oyuncu.position - transform.position).normalized; 
         yon.y = 0; 
-        
-        if (yon != Vector3.zero) 
-        {
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(yon), Time.deltaTime * 5f); 
-        }
+        if (yon != Vector3.zero) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(yon), Time.deltaTime * 5f); 
     }
     
     private IEnumerator GeriTepme(Transform saldiran, float guc, float sure)
     {
         if (ajan) ajan.enabled = false;
-        
         Vector3 yon = (transform.position - saldiran.position).normalized;
         yon.y = 0;
         float t = 0;
-        
         while (t < sure) 
         { 
             if (saglik.olduMu) yield break; 
-            
             transform.Translate(yon * guc * Time.deltaTime, Space.World); 
             t += Time.deltaTime; 
             yield return null; 
         }
-        
         if (!saglik.olduMu) 
         { 
             if (ajan) ajan.enabled = true; 
-            
-            if (saglik.sersemlediMi && ajan.isActiveAndEnabled && ajan.isOnNavMesh) 
-            { 
-                ajan.isStopped = true; 
-                ajan.velocity = Vector3.zero; 
-            } 
+            if (saglik.sersemlediMi && ajan.isActiveAndEnabled && ajan.isOnNavMesh) { ajan.isStopped = true; ajan.velocity = Vector3.zero; } 
         }
     }
 }
